@@ -1,11 +1,8 @@
-# LLM Guide for `@cyftec/signal`
+# LLM Guide for `@cyftec/signals`
 
 Use this guide when writing or reviewing code against this repository. The library has custom semantics. Do not fill gaps from another reactive library: verify behavior in [semantics.md](./semantics.md), [behavior.md](./behavior.md), source, and behavioral tests.
 
-The signal type system also has an intentional widening contract: narrow signal
-types are accepted by matching wider signal types, including source signals.
-Read [type-variance.md](./type-variance.md) before changing generic signal or
-conditional data-method types.
+The signal type system also has an intentional widening contract: narrow signal types are accepted by matching wider signal types, including source signals. Read [type-variance.md](./type-variance.md) before changing generic signal or conditional data-method types.
 
 ## Fast mental model
 
@@ -41,7 +38,7 @@ import {
   tmpl,
   transmit,
   value,
-} from "@cyftec/signal";
+} from "@cyftec/signals";
 ```
 
 The package scope is `@cyftec`, not `@cyftech`.
@@ -189,7 +186,7 @@ Do not include an already-disposed item unless you intend the call to throw befo
 The same read-only method name has a result matching the base category:
 
 ```ts
-signal([1, 2]).length().type;     // "derived-signal"
+signal([1, 2]).length().type; // "derived-signal"
 derive(() => [1, 2]).length().type; // "derived-signal"
 deadSignal([1, 2]).length().type; // "dead-signal"
 ```
@@ -433,7 +430,7 @@ valueIsSignal(input); // live or dead
 
 Before producing code with this library, check:
 
-1. Is the package name exactly `@cyftec/signal`?
+1. Is the package name exactly `@cyftec/signals`?
 2. Were all required dependencies read during the initial effect or derive run?
 3. Are source mutations under `.mutate`?
 4. Is a nullable signal given a non-null method-dispatch exemplar when needed?

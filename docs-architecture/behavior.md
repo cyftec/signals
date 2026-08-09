@@ -1,6 +1,6 @@
 # Behavioral Inventory
 
-This is a caller-oriented inventory of the current `@cyftec/signal` surface. For normative details and limitations, read [semantics.md](./semantics.md). Signatures are simplified for readability; TypeScript inference in the source remains authoritative.
+This is a caller-oriented inventory of the current `@cyftec/signals` surface. For normative details and limitations, read [semantics.md](./semantics.md). Signatures are simplified for readability; TypeScript inference in the source remains authoritative.
 
 ## Core primitives
 
@@ -220,7 +220,7 @@ The generic surface is attached to supported signal types and may also be obtain
 ### `or`
 
 ```ts
-input.or(alternative)
+input.or(alternative);
 ```
 
 Returns `input || alternative`. It is a JavaScript-falsy fallback, not only a nullish fallback.
@@ -368,7 +368,7 @@ Returns `.value` for source, derived, or dead signals and returns a plain input 
 ### `getPlainMethodParams`
 
 ```ts
-getPlainMethodParams(...inputs)
+getPlainMethodParams(...inputs);
 ```
 
 Maps `value(...)` over inputs in order. Data-method implementations use it so method parameters may be signals.

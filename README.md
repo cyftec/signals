@@ -1,22 +1,21 @@
-# @cyftec/signal
+# @cyftec/signals
 
-[![npm version](https://img.shields.io/npm/v/@cyftec/signal.svg)](https://www.npmjs.com/package/@cyftec/signal)
-[![license](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![npm version](https://img.shields.io/npm/v/@cyftec/signals.svg)](https://www.npmjs.com/package/@cyftec/signals) [![license](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
-`@cyftec/signal` is a small reactive state library for TypeScript. It provides mutable source signals, read-only derived signals, synchronous effects, snapshot-style dead signals, and data-specific helpers attached directly to signals.
+`@cyftec/signals` is a small reactive state library for TypeScript. It provides mutable source signals, read-only derived signals, synchronous effects, snapshot-style dead signals, and data-specific helpers attached directly to signals.
 
 The current package version is `0.2.4`. This implementation has its own semantics; do not infer its behavior from another signal library.
 
 ## Install
 
 ```bash
-bun add @cyftec/signal
+bun add @cyftec/signals
 ```
 
 ## Quick start
 
 ```ts
-import { derive, effect, signal } from "@cyftec/signal";
+import { derive, effect, signal } from "@cyftec/signals";
 
 const count = signal(1);
 const doubled = derive(() => count.value * 2);

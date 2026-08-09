@@ -1,11 +1,13 @@
 {
-  "name": "@cyftec/signal",
-  "version": "0.3.9",
+  "name": "@cyftec/signals",
+  "version": "0.0.1",
   "description": "Signal implementation in TypeScript",
   "keywords": [
     "cyftech",
     "signal",
-    "effect",
+    "transmittor",
+    "receiver",
+    "medium",
     "typescript"
   ],
   "author": "Chandan Kumar (Cyfer Tech)",

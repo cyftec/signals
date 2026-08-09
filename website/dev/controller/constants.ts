@@ -1,5 +1,5 @@
 export const CODE_SAMPLES = {
-  SHOWCASE: `import { signal, effect } from "@cyftec/signal";
+  SHOWCASE: `import { signal, effect } from "@cyftec/signals";
 
 type LightState = "red" | "amber" | "green";
 
@@ -15,7 +15,7 @@ setInterval(() => {
   light.value = order[(current + 1) % order.length];
 }, 1200);`,
 
-  IMPORT: `import { signal, derive, effect } from "@cyftec/signal";`,
+  IMPORT: `import { signal, derive, effect } from "@cyftec/signals";`,
 
   CREATE_STATE: `const count = signal(0);
 console.log(count.value); // 0

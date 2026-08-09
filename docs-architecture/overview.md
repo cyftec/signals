@@ -1,6 +1,6 @@
 # Architecture Overview
 
-This document explains the current implementation of `@cyftec/signal` for contributors. It describes repository structure and runtime mechanics; [semantics.md](./semantics.md) remains the observable contract.
+This document explains the current implementation of `@cyftec/signals` for contributors. It describes repository structure and runtime mechanics; [semantics.md](./semantics.md) remains the observable contract.
 
 ## Runtime model
 
@@ -50,10 +50,7 @@ There is no scheduler, queue, batch, transaction, or cycle detector. A write dir
 - `plain-method-params.ts` — parameter-list unwrapping.
 - `type-checkers.ts` — runtime discrimination by the `type` field.
 
-The public type system additionally follows the repository's signal-widening
-contract. It intentionally applies to source as well as read-only signal
-forms; consult [type-variance.md](./type-variance.md) before changing a
-generic signal, conditional data-method type, or maybe-signal input.
+The public type system additionally follows the repository's signal-widening contract. It intentionally applies to source as well as read-only signal forms; consult [type-variance.md](./type-variance.md) before changing a generic signal, conditional data-method type, or maybe-signal input.
 
 The package root re-exports `src/index.ts`, which combines the core, API, and utility barrels.
 

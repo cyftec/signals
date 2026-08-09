@@ -1,6 +1,6 @@
 # Semantics
 
-This document defines the behavior that callers of `@cyftec/signal` may rely on. The source and behavioral tests are authoritative when this document is incomplete. The library has its own model; behavior from another reactive system is not part of this contract.
+This document defines the behavior that callers of `@cyftec/signals` may rely on. The source and behavioral tests are authoritative when this document is incomplete. The library has its own model; behavior from another reactive system is not part of this contract.
 
 The sections below distinguish:
 
