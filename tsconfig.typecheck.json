@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "noEmit": true
+  },
+  "include": [
+    "index.ts",
+    "src/**/*.ts",
+    "tests/**/*.test.ts",
+    "type-tests/**/*.typecheck.ts"
+  ],
+  "exclude": ["node_modules", "website", "docs", "api-meta-builder"]
+}

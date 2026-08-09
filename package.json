@@ -1,0 +1,34 @@
+{
+  "name": "@cyftec/signal",
+  "version": "0.3.9",
+  "description": "Signal implementation in TypeScript",
+  "keywords": [
+    "cyftech",
+    "signal",
+    "effect",
+    "typescript"
+  ],
+  "author": "Chandan Kumar (Cyfer Tech)",
+  "license": "MIT",
+  "exports": "./src/index.ts",
+  "dependencies": {
+    "@cyftec/immut": "^0.1.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "bun-types": "^1.3.14",
+    "typescript": "^5.0.0"
+  },
+  "scripts": {
+    "test": "bun run test:runtime && bun run test:types",
+    "test:runtime": "bun test",
+    "test:types": "tsc -p tsconfig.typecheck.json",
+    "test:coverage": "bun test --coverage",
+    "build:meta": "bun run ./api-meta-builder/generate-meta.ts",
+    "build:validate": "bun run ./api-meta-builder/validate-meta.ts",
+    "docs": "bun run build:meta && bun run build:validate && cd website && brahma p",
+    "setup:hooks": "git config core.hooksPath .githooks"
+  }
+}

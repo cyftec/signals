@@ -1,0 +1,9 @@
+#!/usr/bin/env bun
+import { $ } from "bun";
+
+try {
+  await $`bun test`;
+} catch (error) {
+  console.error("❌ Tests failed. Commit aborted.");
+  process.exit(1);
+}

@@ -1,0 +1,9 @@
+.githooks
+api-meta-builder
+docs
+doc-architecture
+node_modules
+test
+website
+.gitignore
+AGENTS.md
