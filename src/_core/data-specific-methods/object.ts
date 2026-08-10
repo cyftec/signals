@@ -1,4 +1,5 @@
-import { DerivedSignal, Signal, BaseSourceSignal } from "../_types";
+import { Signal, BaseSourceSignal } from "../_types";
+import type { DerivedSignal } from "../derived-signal";
 import { derive } from "../derived-signal";
 import {
   ObjectNonMutatingMethods,
@@ -45,9 +46,8 @@ export const getObjectMutatingMethods = <T extends Record<string, any>>(
  * Creates non-mutating projections for a plain-object signal.
  *
  * Exposes the object's keys, individual properties, and a snapshot of property
- * signal objects while preserving the liveness category of the input.
+ * signal objects while preserving the derived result type of the input.
  *
- * @template InputSignal - Whether results are live derived signals or dead snapshots
  * @template T - The object type
  * @param baseObjectSignal - The base object signal whose properties are projected
  * @returns Non-mutating methods for object keys and properties
@@ -55,7 +55,7 @@ export const getObjectMutatingMethods = <T extends Record<string, any>>(
  * @example
  * ```typescript
  * const user = signal({ name: "John", age: 30 });
- * const methods = getObjectNonMutatingMethods<"live", typeof user.value>(user);
+ * const methods = getObjectNonMutatingMethods<typeof user.value>(user);
  * const name = methods.get("name");
  * console.log(name.value); // "John"
  * ```
@@ -63,8 +63,7 @@ export const getObjectMutatingMethods = <T extends Record<string, any>>(
  * @remarks
  * - `keys()` and `get()` project through the current object value
  * - `props()` creates one property signal for each key present when it is called
- * - Live inputs produce reactive `DerivedSignal` projections
- * - Dead inputs produce snapshot `DeadSignal` projections
+ * - Every projection returns a lazy `DerivedSignal`.
  *
  * @see {@link ObjectNonMutatingMethods} - The returned method contract
  * @see {@link getObjectMutatingMethods} - For shallow source-signal updates
@@ -96,7 +95,6 @@ export const getObjectNonMutatingMethods = <T extends Record<string, any>>(
  * Places shallow mutation under `.mutate` and exposes keys and property
  * projections as direct methods on the returned object.
  *
- * @template InputSignal - The liveness category used by non-mutating results
  * @template T - The object type
  * @param baseObjectSignal - The mutable base signal whose object value is used
  * @returns Combined mutating and non-mutating object methods
@@ -104,10 +102,7 @@ export const getObjectNonMutatingMethods = <T extends Record<string, any>>(
  * @example
  * ```typescript
  * const user = signal({ name: "John", age: 30 });
- * const methods = getObjectMutatingAndNonMutatingMethods<
- *   "live",
- *   typeof user.value
- * >(user);
+ * const methods = getObjectMutatingAndNonMutatingMethods(user);
  * methods.mutate.set({ age: 31 });
  * console.log(methods.get("name").value); // "John"
  * ```
@@ -115,7 +110,7 @@ export const getObjectNonMutatingMethods = <T extends Record<string, any>>(
  * @remarks
  * - Mutation is available only through `.mutate.set()`
  * - Non-mutating projections are direct members
- * - Live inputs produce `DerivedSignal` projections; a non-live type produces snapshots
+ * - Every projection returns a lazy `DerivedSignal`.
  *
  * @see {@link getObjectMutatingMethods} - For mutating methods only
  * @see {@link getObjectNonMutatingMethods} - For non-mutating methods only

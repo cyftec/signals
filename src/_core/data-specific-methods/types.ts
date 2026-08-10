@@ -63,13 +63,42 @@ export type IsArray<T> = T extends readonly unknown[] ? true : false;
  * projected value to receive the array method surface.
  *
  * @template T - The type to inspect.
+ *
+ * @remarks
+ * - This predicate returns true only for the special any type.
+ * - It prevents data-method selection from treating any as a concrete value family.
+ *
+ * @example
+ * ```typescript
+ * type AnyCheck = IsExactlyAny<any>; // true
+ * type StringCheck = IsExactlyAny<string>; // false
+ * ```
+ *
+ * @see {@link DataMethodValue} - Uses this predicate before normalizing a value branch.
+ * @see {@link NonMutatingMethods} - Avoids selecting methods for any.
  */
 export type IsExactlyAny<T> = 0 extends 1 & T ? true : false;
 
 /**
  * Normalizes a distributed value branch before selecting data-specific methods.
  *
+ * Literal primitive branches become their primitive base type, while any and
+ * non-primitive branches are preserved unchanged.
+ *
  * @template T - One member of a signal value union.
+ *
+ * @remarks
+ * - String, number, and boolean literals normalize to string, number, and boolean.
+ * - The any type is preserved so it does not acquire an arbitrary method family.
+ *
+ * @example
+ * ```typescript
+ * type Text = DataMethodValue<"ready">; // string
+ * type Count = DataMethodValue<1>; // number
+ * ```
+ *
+ * @see {@link IsExactlyAny} - Identifies the any special case.
+ * @see {@link NonMutatingMethods} - Selects methods from the normalized branch.
  */
 export type DataMethodValue<T> = [true] extends [IsExactlyAny<T>]
   ? T
@@ -206,9 +235,8 @@ export type GenericMethodReturnType = "ternary" | "deriver";
  * Defines the fallback method available to supported primitive values.
  *
  * The `or()` method selects an alternative for a falsy input and returns a
- * signal matching the input's liveness category.
+ * signal matching the derived result type.
  *
- * @template InputSignal - The input liveness category
  * @template P - The primitive input value type
  *
  * @remarks
@@ -217,12 +245,12 @@ export type GenericMethodReturnType = "ternary" | "deriver";
  *
  * @example
  * ```typescript
- * declare const methods: LogicalOrAlternative<"live", string | undefined>;
+ * declare const methods: LogicalOrAlternative<string | undefined>;
  * const text = methods.or("fallback"); // DerivedSignal<string>
  * ```
  *
  * @see {@link GenericMethods} - The conditional method surface containing `or()`
- * @see {@link DeriverReturnType} - For live/dead result mapping
+ * @see {@link DerivedSignal} - The result returned by or().
  */
 export type LogicalOrAlternative<
   P extends Primitive,
@@ -236,16 +264,15 @@ export type LogicalOrAlternative<
  * Defines the final branch selector for a ternary comparison.
  *
  * `then()` chooses between two maybe-signal values and returns a signal matching
- * the original input's liveness category.
+ * the original derived result type.
  *
- * @template InputSignal - The input liveness category
  *
  * @remarks
- * - Both branch values participate in dependency tracking for live inputs
+ * - Both branch values participate in dependency tracking for all inputs
  *
  * @example
  * ```typescript
- * declare const branch: TernaryThen<"live">;
+ * declare const branch: TernaryThen;
  * const label = branch.then("yes", "no"); // DerivedSignal<string>
  * ```
  *
@@ -263,9 +290,8 @@ export type TernaryThen  = {
  * Selects the result of a generic comparison.
  *
  * Ternary comparisons return a `TernaryThen` continuation; direct comparisons
- * return a boolean signal matching the input's liveness.
+ * return a boolean signal returned as derived signals.
  *
- * @template InputSignal - The input liveness category
  * @template GenericMethodReturn - Whether the comparison is ternary or direct
  *
  * @remarks
@@ -273,12 +299,12 @@ export type TernaryThen  = {
  *
  * @example
  * ```typescript
- * type Direct = ComparisonReturnType<"live", "deriver">;
- * type Branch = ComparisonReturnType<"live", "ternary">;
+ * type Direct = ComparisonReturnType<"deriver">;
+ * type Branch = ComparisonReturnType<"ternary">;
  * ```
  *
  * @see {@link TernaryThen} - The ternary result
- * @see {@link DeriverReturnType} - The direct boolean result
+ * @see {@link DerivedSignal} - The direct boolean result.
  */
 export type ComparisonReturnType<
   GenericMethodReturn extends GenericMethodReturnType,
@@ -292,9 +318,7 @@ export type ComparisonReturnType<
  * Supplies `truthy()`, `falsy()`, `equalTo()`, and `notEqualTo()` with a shared
  * comparison result type.
  *
- * @template InputSignal - The input liveness category
  * @template GenericMethodReturn - Whether methods return signals or ternary continuations
- * @template P - Retained primitive value type parameter
  * @template R - The resolved comparison result type
  *
  * @remarks
@@ -303,9 +327,7 @@ export type ComparisonReturnType<
  * @example
  * ```typescript
  * declare const checks: ExistenceComparison<
- *   "live",
  *   "deriver",
- *   number,
  *   DerivedSignal<boolean>
  * >;
  * const present = checks.truthy();
@@ -330,7 +352,6 @@ export type ExistenceComparison<
  * Supplies strict and inclusive greater-than and smaller-than methods with a
  * shared comparison result type.
  *
- * @template InputSignal - The input liveness category
  * @template GenericMethodReturn - Whether methods return signals or ternary continuations
  * @template R - The resolved comparison result type
  *
@@ -340,7 +361,6 @@ export type ExistenceComparison<
  * @example
  * ```typescript
  * declare const checks: MeasureComparison<
- *   "live",
  *   "deriver",
  *   DerivedSignal<boolean>
  * >;
@@ -366,7 +386,6 @@ export type MeasureComparison<
  * Always includes truthiness and equality checks and conditionally includes
  * ordered comparisons when the value type is numeric.
  *
- * @template InputSignal - The input liveness category
  * @template GenericMethodReturn - Whether methods return signals or ternary continuations
  * @template P - The primitive value type being compared
  *
@@ -375,7 +394,7 @@ export type MeasureComparison<
  *
  * @example
  * ```typescript
- * declare const checks: Comparison<"live", "deriver", number>;
+ * declare const checks: Comparison<"deriver", number>;
  * checks.equalTo(1);
  * checks.greaterThan(0);
  * ```
@@ -402,7 +421,6 @@ export type Comparison<
  *
  * Exposes the ordinary numeric comparison surface beneath a `length` member.
  *
- * @template InputSignal - The input liveness category
  * @template GenericMethodReturn - Whether methods return signals or ternary continuations
  *
  * @remarks
@@ -410,7 +428,7 @@ export type Comparison<
  *
  * @example
  * ```typescript
- * declare const checks: LengthComparison<"live", "deriver">;
+ * declare const checks: LengthComparison<"deriver">;
  * const nonEmpty = checks.length.truthy();
  * ```
  *
@@ -429,7 +447,6 @@ export type LengthComparison<
  * The `is` group returns direct result signals, while the `if` group returns
  * `then()` continuations. Length groups are added for strings and arrays.
  *
- * @template InputSignal - The input liveness category
  * @template T - The primitive or array value type
  *
  * @remarks
@@ -438,7 +455,7 @@ export type LengthComparison<
  *
  * @example
  * ```typescript
- * declare const methods: IsAndIfComparison<"live", string>;
+ * declare const methods: IsAndIfComparison<string>;
  * const nonEmpty = methods.is.length.truthy();
  * const label = methods.if.truthy().then("yes", "no");
  * ```
@@ -469,7 +486,6 @@ export type IsAndIfComparison<
  * Combines fallback, direct comparison, and ternary comparison surfaces based
  * on the input's primitive, string, array, or object shape.
  *
- * @template InputSignal - The input liveness category
  * @template T - The input value type
  *
  * @remarks
@@ -479,7 +495,7 @@ export type IsAndIfComparison<
  *
  * @example
  * ```typescript
- * declare const methods: GenericMethods<"live", number>;
+ * declare const methods: GenericMethods<number>;
  * const positive = methods.is.greaterThan(0);
  * ```
  *
@@ -554,19 +570,18 @@ export type ArrayMutatingMethods<T extends any[]> = {
  * Intrinsic non-mutating methods for array signals.
  *
  * Defines standard read-only array operations whose results preserve the input
- * signal's liveness category.
+ * signal's derived result type.
  *
- * @template InputSignal - Whether results are live derived signals or dead snapshots
  * @template T - The array type
  *
  * @remarks
- * - Live inputs return `DerivedSignal` projections
- * - Dead inputs return snapshot `DeadSignal` projections
- * - Signal-valued method parameters remain reactive for live inputs
+ * - All inputs return `DerivedSignal` projections
+ * - All inputs return `DerivedSignal` projections
+ * - Signal-valued method parameters remain reactive for all inputs
  *
  * @example
  * ```typescript
- * declare const methods: ArrayIntrinsicNonMutatingMethods<"live", number[]>;
+ * declare const methods: ArrayIntrinsicNonMutatingMethods<number[]>;
  * const doubled = methods.map((item) => item * 2); // DerivedSignal<number[]>
  * ```
  *
@@ -640,17 +655,16 @@ export type ArrayIntrinsicNonMutatingMethods<T extends any[]> = {
  * Defines the library-specific last-item and partition projections for an
  * array signal.
  *
- * @template InputSignal - Whether results are live derived signals or dead snapshots
  * @template T - The array type
  *
  * @remarks
  * - `lastItem()` projects the final element or `undefined`
  * - `partition()` returns passing and failing arrays in that order
- * - Every result follows the input signal's liveness category
+ * - Every result follows the input signal's derived result type
  *
  * @example
  * ```typescript
- * declare const methods: ArrayCustomNonMutatingMethods<"live", number[]>;
+ * declare const methods: ArrayCustomNonMutatingMethods<number[]>;
  * const [even, odd] = methods.partition((item) => item % 2 === 0);
  * ```
  *
@@ -671,17 +685,16 @@ export type ArrayCustomNonMutatingMethods<T extends any[]> = {
  *
  * Combines the intrinsic array projections with `lastItem()` and `partition()`.
  *
- * @template InputSignal - Whether results are live derived signals or dead snapshots
  * @template T - The array type
  *
  * @remarks
  * - Mutation methods are deliberately excluded from this surface
- * - Every projection result follows the input signal's liveness category
+ * - Every projection result follows the input signal's derived result type
  *
  * @example
  * ```typescript
- * declare const methods: ArrayNonMutatingMethods<"non-live", number[]>;
- * const last = methods.lastItem(); // DeadSignal<number | undefined>
+ * declare const methods: ArrayNonMutatingMethods<number[]>;
+ * const last = methods.lastItem(); // DerivedSignal<number | undefined>
  * ```
  *
  * @see {@link ArrayIntrinsicNonMutatingMethods} - The intrinsic portion
@@ -696,7 +709,6 @@ export type ArrayNonMutatingMethods<T extends any[]> =
  * Defines a nested mutation namespace together with direct non-mutating array
  * projections.
  *
- * @template InputSignal - The liveness category used by non-mutating results
  * @template T - The array type
  *
  * @remarks
@@ -706,7 +718,7 @@ export type ArrayNonMutatingMethods<T extends any[]> =
  *
  * @example
  * ```typescript
- * declare const methods: ArrayMutatingAndNonMutatingMethods<"live", number[]>;
+ * declare const methods: ArrayMutatingAndNonMutatingMethods<number[]>;
  * methods.mutate.push(3);
  * const length = methods.length();
  * ```
@@ -753,9 +765,8 @@ export type ObjectMutatingMethods<T extends Record<string, any>> = {
  * Non-mutating methods for object signals.
  *
  * Defines key and property projections whose results preserve the input
- * signal's liveness category.
+ * signal's derived result type.
  *
- * @template InputSignal - Whether results are live derived signals or dead snapshots
  * @template T - The object type
  *
  * @remarks
@@ -766,7 +777,7 @@ export type ObjectMutatingMethods<T extends Record<string, any>> = {
  * @example
  * ```typescript
  * type User = { name: string; age: number };
- * declare const methods: ObjectNonMutatingMethods<"live", User>;
+ * declare const methods: ObjectNonMutatingMethods<User>;
  * const name = methods.get("name"); // DerivedSignal<string>
  * ```
  *
@@ -792,7 +803,6 @@ export type ObjectNonMutatingMethods<
  * Defines a nested shallow-mutation namespace together with direct key and
  * property projections.
  *
- * @template InputSignal - The liveness category used by non-mutating results
  * @template T - The object type
  *
  * @remarks
@@ -802,7 +812,7 @@ export type ObjectNonMutatingMethods<
  * @example
  * ```typescript
  * type User = { name: string; age: number };
- * declare const methods: ObjectMutatingAndNonMutatingMethods<"live", User>;
+ * declare const methods: ObjectMutatingAndNonMutatingMethods<User>;
  * methods.mutate.set({ age: 31 });
  * const name = methods.get("name");
  * ```
@@ -987,18 +997,17 @@ export type StringMutatingMethods = {
  * Intrinsic non-mutating methods for string signals.
  *
  * Defines standard read-only string operations whose results preserve the input
- * signal's liveness category.
+ * signal's derived result type.
  *
- * @template InputSignal - Whether results are live derived signals or dead snapshots
  *
  * @remarks
  * - Covers character lookup, search, concatenation, padding, replacement, splitting, trimming, and case conversion
- * - Live inputs return `DerivedSignal` projections
- * - Dead inputs return snapshot `DeadSignal` projections
+ * - All inputs return `DerivedSignal` projections
+ * - All inputs return `DerivedSignal` projections
  *
  * @example
  * ```typescript
- * declare const methods: StringIntrinsicNonMutatingMethods<"live">;
+ * declare const methods: StringIntrinsicNonMutatingMethods;
  * const upper = methods.toUpperCase(); // DerivedSignal<string>
  * ```
  *
@@ -1098,16 +1107,15 @@ export type StringIntrinsicNonMutatingMethods  = {
  *
  * Defines the library-specific `deepTrim()` projection for string signals.
  *
- * @template InputSignal - Whether results are live derived signals or dead snapshots
  *
  * @remarks
  * - `deepTrim()` trims the ends and collapses internal whitespace runs
- * - Its result follows the input signal's liveness category
+ * - Its result follows the input signal's derived result type
  *
  * @example
  * ```typescript
- * declare const methods: StringCustomNonMutatingMethods<"non-live">;
- * const trimmed = methods.deepTrim(); // DeadSignal<string>
+ * declare const methods: StringCustomNonMutatingMethods;
+ * const trimmed = methods.deepTrim(); // DerivedSignal<string>
  * ```
  *
  * @see {@link StringIntrinsicNonMutatingMethods} - For standard string projections
@@ -1123,15 +1131,14 @@ export type StringCustomNonMutatingMethods = {
  * Combines the intrinsic string projections with the custom `deepTrim()`
  * projection.
  *
- * @template InputSignal - Whether results are live derived signals or dead snapshots
  *
  * @remarks
  * - Mutation methods are deliberately excluded from this surface
- * - Every projection result follows the input signal's liveness category
+ * - Every projection result follows the input signal's derived result type
  *
  * @example
  * ```typescript
- * declare const methods: StringNonMutatingMethods<"live">;
+ * declare const methods: StringNonMutatingMethods;
  * const contains = methods.includes("needle");
  * ```
  *
@@ -1148,7 +1155,6 @@ export type StringNonMutatingMethods =
  * Defines a nested mutation namespace together with direct non-mutating string
  * projections.
  *
- * @template InputSignal - The liveness category used by non-mutating results
  *
  * @remarks
  * - Mutators are grouped beneath `.mutate`
@@ -1156,7 +1162,7 @@ export type StringNonMutatingMethods =
  *
  * @example
  * ```typescript
- * declare const methods: StringMutatingAndNonMutatingMethods<"live">;
+ * declare const methods: StringMutatingAndNonMutatingMethods;
  * methods.mutate.trim();
  * const length = methods.length();
  * ```
@@ -1173,18 +1179,17 @@ export type StringMutatingAndNonMutatingMethods<
  * Intrinsic non-mutating methods for number signals.
  *
  * Defines standard number-formatting operations whose results preserve the
- * input signal's liveness category.
+ * input signal's derived result type.
  *
- * @template InputSignal - Whether results are live derived signals or dead snapshots
  *
  * @remarks
  * - Includes exponential, fixed, precision, and locale-aware formatting
  * - Formatting arguments may be signals
- * - Live inputs return `DerivedSignal` results; dead inputs return snapshot `DeadSignal` results
+ * - All inputs return `DerivedSignal` results; inputs return `DerivedSignal` results
  *
  * @example
  * ```typescript
- * declare const methods: NumberIntrinsicNonMutatingMethods<"live">;
+ * declare const methods: NumberIntrinsicNonMutatingMethods;
  * const fixed = methods.toFixed(2); // DerivedSignal<string>
  * ```
  *
@@ -1212,17 +1217,16 @@ export type NumberIntrinsicNonMutatingMethods = {
  *
  * Defines the library-specific inclusive confinement projection.
  *
- * @template InputSignal - Whether results are live derived signals or dead snapshots
  *
  * @remarks
  * - `toConfined()` clamps values to `[start, end]`
  * - Both bounds may be signals
- * - The result follows the input signal's liveness category
+ * - The result follows the input signal's derived result type
  *
  * @example
  * ```typescript
- * declare const methods: NumberCustomNonMutatingMethods<"non-live">;
- * const confined = methods.toConfined(0, 10); // DeadSignal<number>
+ * declare const methods: NumberCustomNonMutatingMethods;
+ * const confined = methods.toConfined(0, 10); // DerivedSignal<number>
  * ```
  *
  * @see {@link NumberIntrinsicNonMutatingMethods} - For standard formatting
@@ -1241,15 +1245,14 @@ export type NumberCustomNonMutatingMethods = {
  *
  * Combines standard number formatting with the custom confinement projection.
  *
- * @template InputSignal - Whether results are live derived signals or dead snapshots
  *
  * @remarks
  * - Generic logical methods are not part of this data-specific type
- * - Every result follows the input signal's liveness category
+ * - Every result follows the input signal's derived result type
  *
  * @example
  * ```typescript
- * declare const methods: NumberNonMutatingMethods<"live">;
+ * declare const methods: NumberNonMutatingMethods;
  * const text = methods.toPrecision(3);
  * const bounded = methods.toConfined(0, 100);
  * ```
@@ -1314,7 +1317,6 @@ export type BooleanMutatingAndNonMutatingMethods = {
  * corresponding projection surfaces and maps unsupported values to an empty
  * object type.
  *
- * @template InputSignal - Whether projection results are live derived signals or dead snapshots
  * @template T - The value type used for method selection
  *
  * @remarks
@@ -1323,8 +1325,8 @@ export type BooleanMutatingAndNonMutatingMethods = {
  *
  * @example
  * ```typescript
- * type TextMethods = NonMutatingMethods<"live", string>;
- * type ArrayMethods = NonMutatingMethods<"non-live", number[]>;
+ * type TextMethods = NonMutatingMethods<string>;
+ * type ArrayMethods = NonMutatingMethods<number[]>;
  * ```
  *
  * @see {@link MutatingAndNonMutatingMethods} - For source-signal method selection
@@ -1350,7 +1352,6 @@ export type NonMutatingMethods< T> = [
  * Maps arrays, object literals, exact strings, exact numbers, and exact booleans
  * to their corresponding source-signal method types.
  *
- * @template InputSignal - The liveness category used by non-mutating results
  * @template T - The source value type used for method selection
  *
  * @remarks
@@ -1360,8 +1361,8 @@ export type NonMutatingMethods< T> = [
  *
  * @example
  * ```typescript
- * type TextSourceMethods = MutatingAndNonMutatingMethods<"live", string>;
- * type BooleanSourceMethods = MutatingAndNonMutatingMethods<"live", boolean>;
+ * type TextSourceMethods = MutatingAndNonMutatingMethods<string>;
+ * type BooleanSourceMethods = MutatingAndNonMutatingMethods<boolean>;
  * ```
  *
  * @see {@link NonMutatingMethods} - For projection-only selection

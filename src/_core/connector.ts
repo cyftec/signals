@@ -1,5 +1,26 @@
 import { Receiver, SignalConnector, BaseSourceSignal } from "./_types";
 
+/**
+ * Coordinates initial effect dependency collection and synchronous source writes.
+ *
+ * The connector records source signals read while installing a receiver, then
+ * invokes each recorded receiver when that source signal changes.
+ *
+ * @remarks
+ * - Dependencies are captured only during installReceiver().
+ * - Repeated reads of one signal by a receiver register one receiver identifier.
+ * - Receivers run synchronously in insertion order for each source signal.
+ *
+ * @example
+ * ```typescript
+ * const count = signal(0);
+ * effect(() => count.value);
+ * count.value = 1;
+ * ```
+ *
+ * @see {@link effect} - Installs receivers through this connector.
+ * @see {@link BaseSourceSignal} - The signal shape that triggers receivers.
+ */
 export const Connector = ((): SignalConnector => {
   let _newReceiver: Receiver | null = null;
   const _receivers = new Map<number, Receiver>();

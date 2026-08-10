@@ -4,16 +4,16 @@ import { value } from "./value-getter";
 /**
  * Unwraps a tuple of signal-capable method arguments.
  *
- * Data-specific helpers use this function to convert their plain, live-signal,
- * and dead-signal operands into the native argument tuple expected by JavaScript.
+ * Data-specific helpers use this function to convert their plain and
+ * signal operands into the native argument tuple expected by JavaScript.
  *
  * @template T - The signal-capable argument tuple type.
  * @param methodParams - Arguments to unwrap in order.
  * @returns A new array containing each argument's plain value.
  *
  * @remarks
- * - Live signal arguments participate in dependency collection.
- * - Dead signals and plain values do not create future updates.
+ * - Source-signal arguments can participate in effect dependency collection.
+ * - Plain values remain unchanged.
  * - Function arguments remain functions because `MaybeSignalValues` preserves callable entries.
  * - The returned array preserves input order.
  *

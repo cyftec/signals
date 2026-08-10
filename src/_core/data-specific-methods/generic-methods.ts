@@ -24,8 +24,8 @@ import type {
  *
  * @remarks
  * - The `then` method returns truthyOption if the condition is true, otherwise falsyOption
- * - Live bases return a reactive derived signal
- * - Dead bases return a dead-signal snapshot
+ * - Every branch selection returns a lazy derived signal.
+ * - Both options are read when that derived value is read.
  * - Used by the `if` logical methods for conditional value selection
  */
 const getTernaryThen = (truthyEvaluator: () => boolean): TernaryThen => {
@@ -221,25 +221,24 @@ const getLengthMethods = <GenericMethodReturn extends GenericMethodReturnType>(
  * Creates logical methods for signals.
  *
  * Builds the `or`, `is`, and `if` method groups shared by supported signal
- * values. Comparison results follow the liveness of the input at runtime.
+ * values. Every comparison result is a lazy derived signal.
  *
- * @template InputSignal - Whether results are live derived signals or dead snapshots
  * @template T - The value type exposed by the input
  * @param baseSignal - The signal to add logical methods to
  * @returns A logical methods object
  *
  * @remarks
  * - `or()` selects its alternative for every JavaScript-falsy input value
- * - `is` methods return boolean signals matching the input's liveness
+ * - `is` methods return boolean signals returned as derived signals
  * - `if` methods return a `then()` selector for reactive conditional values
  * - Length comparisons are exposed for strings and arrays
  * - Measure comparisons are exposed for numbers
- * - Live inputs produce `DerivedSignal` results; dead or plain inputs produce snapshot `DeadSignal` results
+ * - All inputs produce `DerivedSignal` results; inputs produce `DerivedSignal` results
  *
  * @example
  * ```typescript
  * const count = signal(5);
- * const logical = getGenericMethods<"live", number>(count);
+ * const logical = getGenericMethods<number>(count);
  * logical.is.truthy().value; // true
  * logical.is.greaterThan(3).value; // true
  * logical.if.greaterThan(10).then("big", "small").value; // "small"

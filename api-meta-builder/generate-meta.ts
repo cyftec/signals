@@ -165,6 +165,7 @@ function record(entry: ExportEntry) {
   const key = `${entry.category}:${entry.name}`;
   const existing = exportMap.get(key);
   if (existing) {
+    if (existing.filePath === entry.filePath) return;
     throw new Error(
       `Duplicate generated entity '${key}' in ${relSource(existing.filePath)} and ${relSource(entry.filePath)}.`,
     );

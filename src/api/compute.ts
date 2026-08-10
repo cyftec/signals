@@ -9,19 +9,18 @@ import { value } from "../utils";
 /**
  * Computes a derived signal from signal-capable function arguments.
  *
- * Every argument is unwrapped with `value()` inside a derived evaluator, then
- * passed to `computerFn` in order. Live argument reads therefore become the
- * computation's initial dependencies.
+ * Every argument is unwrapped with `value()` inside a derived value getter, then
+ * passed to `computerFn` in order whenever the returned value is read.
  *
  * @template F - The function type used for parameter and result inference.
  * @param computerFn - The function to call with unwrapped argument values.
- * @param restArgs - Plain, live-signal, or dead-signal values matching the function parameters.
+ * @param restArgs - Plain values or signals matching the function parameters.
  * @returns A derived signal containing the function result.
  *
  * @remarks
- * - The computation runs immediately through `derive()`.
- * - Plain and dead arguments do not cause future recomputation.
- * - Dependency collection follows `derive` and is limited to the initial call.
+ * - The computation runs when the returned derived value is read.
+ * - Plain arguments are read as supplied; signals are unwrapped at read time.
+ * - Source-signal reads can be collected when the derived value is read during effect installation.
  * - Errors thrown by `computerFn` propagate synchronously.
  *
  * @example
@@ -33,8 +32,8 @@ import { value } from "../utils";
  * console.log(total.value); // 7
  * ```
  *
- * @see {@link derive} - Provides the derived-signal lifecycle.
- * @see {@link value} - Unwraps each argument and collects live dependencies.
+ * @see {@link derive} - Provides the lazy derived value getter.
+ * @see {@link value} - Unwraps each argument.
  * @see {@link MaybeSignalValues} - Describes accepted argument tuples.
  */
 export const compute = <F extends (...args: any[]) => any>(

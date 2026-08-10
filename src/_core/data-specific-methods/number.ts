@@ -11,21 +11,20 @@ import {
  * Creates intrinsic non-mutating methods for number signals.
  *
  * Adapts the standard number formatting methods so their results follow the
- * liveness category of the input signal.
+ * derived result type of the input signal.
  *
- * @template InputSignal - Whether results are live derived signals or dead snapshots
  * @param baseNumberSignal - The base number signal to access values from
  * @returns Intrinsic non-mutating methods for number signals
  *
  * @remarks
  * - Includes `toExponential()`, `toFixed()`, `toPrecision()`, and `toLocaleString()`
  * - Method parameters may themselves be signals
- * - Live inputs produce `DerivedSignal` results; dead inputs produce snapshot `DeadSignal` results
+ * - All inputs produce `DerivedSignal` results; inputs produce `DerivedSignal` results
  *
  * @example
  * ```typescript
  * const amount = signal(12.5);
- * const methods = getNumberIntrinsicNonMutatingMethods<"live">(amount);
+ * const methods = getNumberIntrinsicNonMutatingMethods(amount);
  * console.log(methods.toFixed(2).value); // "12.50"
  * ```
  *
@@ -66,21 +65,20 @@ export const getNumberIntrinsicNonMutatingMethods = (
  * Creates custom non-mutating methods for number signals.
  *
  * Provides the library-specific `toConfined()` projection and preserves the
- * liveness category of the input signal.
+ * derived result type of the input signal.
  *
- * @template InputSignal - Whether results are live derived signals or dead snapshots
  * @param baseNumberSignal - The base number signal to access values from
  * @returns Custom non-mutating methods for number signals
  *
  * @remarks
  * - `toConfined()` clamps the value to the inclusive `[start, end]` range
  * - Both boundaries may be signals and participate in live dependency tracking
- * - Live inputs produce a `DerivedSignal`; dead inputs produce a snapshot `DeadSignal`
+ * - All inputs produce a `DerivedSignal`; inputs produce a `DerivedSignal`
  *
  * @example
  * ```typescript
  * const amount = signal(12);
- * const methods = getNumberCustomNonMutatingMethods<"live">(amount);
+ * const methods = getNumberCustomNonMutatingMethods(amount);
  * console.log(methods.toConfined(0, 10).value); // 10
  * ```
  *
@@ -110,19 +108,18 @@ export const getNumberCustomNonMutatingMethods = (
  * Combines the intrinsic formatting projections with the custom confinement
  * projection used by number signals.
  *
- * @template InputSignal - Whether results are live derived signals or dead snapshots
  * @param baseNumberSignal - The base number signal to access values from
  * @returns Combined non-mutating methods for number signals
  *
  * @remarks
  * - The returned object contains only number-specific non-mutating methods
  * - Generic logical methods are attached separately during signal construction
- * - Live inputs produce `DerivedSignal` results; dead inputs produce snapshot `DeadSignal` results
+ * - All inputs produce `DerivedSignal` results; inputs produce `DerivedSignal` results
  *
  * @example
  * ```typescript
- * const amount = deadSignal(12.345);
- * const methods = getNumberSignalMethods<"non-live">(amount);
+ * const amount = signal(12.345);
+ * const methods = getNumberSignalMethods(amount);
  * console.log(methods.toFixed(1).value); // "12.3"
  * ```
  *

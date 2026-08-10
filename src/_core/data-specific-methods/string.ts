@@ -163,21 +163,20 @@ export const getStringSignalMutatingMethods = (
  * Creates intrinsic non-mutating methods for string signals.
  *
  * Adapts standard read-only string operations so their results follow the
- * liveness category of the input signal.
+ * derived result type of the input signal.
  *
- * @template InputSignal - Whether results are live derived signals or dead snapshots
  * @param baseStringSignal - The base string signal to access values from
  * @returns Intrinsic non-mutating methods for string signals
  *
  * @remarks
  * - Includes character lookup, search, concatenation, padding, replacement, splitting, trimming, and case conversion
  * - Method parameters may themselves be signals
- * - Live inputs produce `DerivedSignal` results; dead inputs produce snapshot `DeadSignal` results
+ * - All inputs produce `DerivedSignal` results; inputs produce `DerivedSignal` results
  *
  * @example
  * ```typescript
  * const text = signal("hello");
- * const methods = getStringIntrinsicNonMutatingMethods<"live">(text);
+ * const methods = getStringIntrinsicNonMutatingMethods(text);
  * console.log(methods.toUpperCase().value); // "HELLO"
  * ```
  *
@@ -341,21 +340,20 @@ export const getStringIntrinsicNonMutatingMethods = (
  * Creates custom non-mutating methods for string signals.
  *
  * Provides the library-specific `deepTrim()` projection while preserving the
- * liveness category of the input signal.
+ * derived result type of the input signal.
  *
- * @template InputSignal - Whether results are live derived signals or dead snapshots
  * @param baseStringSignal - The base string signal to access values from
  * @returns Custom non-mutating methods for string signals
  *
  * @remarks
  * - `deepTrim()` trims leading and trailing whitespace
  * - Internal whitespace runs are collapsed to a single space
- * - Live inputs produce a `DerivedSignal`; dead inputs produce a snapshot `DeadSignal`
+ * - All inputs produce a `DerivedSignal`; inputs produce a `DerivedSignal`
  *
  * @example
  * ```typescript
- * const text = deadSignal("  hello   world  ");
- * const methods = getStringCustomNonMutatingMethods<"non-live">(text);
+ * const text = signal("  hello   world  ");
+ * const methods = getStringCustomNonMutatingMethods(text);
  * console.log(methods.deepTrim().value); // "hello world"
  * ```
  *
@@ -378,19 +376,18 @@ export const getStringCustomNonMutatingMethods = (
  * Combines the intrinsic string projections with the custom `deepTrim()`
  * projection used by string signals.
  *
- * @template InputSignal - Whether results are live derived signals or dead snapshots
  * @param baseStringSignal - The base string signal to access values from
  * @returns Combined non-mutating methods for string signals
  *
  * @remarks
  * - The returned object contains only string-specific non-mutating methods
  * - Generic logical methods are attached separately during signal construction
- * - Live inputs produce `DerivedSignal` results; dead inputs produce snapshot `DeadSignal` results
+ * - All inputs produce `DerivedSignal` results; inputs produce `DerivedSignal` results
  *
  * @example
  * ```typescript
  * const text = signal("  hello  ");
- * const methods = getStringSignalNonMutatingMethods<"live">(text);
+ * const methods = getStringSignalNonMutatingMethods(text);
  * console.log(methods.deepTrim().value); // "hello"
  * ```
  *
@@ -410,19 +407,18 @@ export const getStringSignalNonMutatingMethods = (
  * Places string mutation methods under `.mutate` and exposes non-mutating
  * string projections as direct methods on the returned object.
  *
- * @template InputSignal - The liveness category used by non-mutating results
  * @param baseStringSignal - The mutable base signal whose string value is used
  * @returns Combined mutating and non-mutating string methods
  *
  * @remarks
  * - Mutation methods are available only under `.mutate`
  * - Non-mutating projection methods are direct members
- * - Live inputs produce `DerivedSignal` projections; a non-live type produces snapshots
+ * - Every projection returns a lazy `DerivedSignal`.
  *
  * @example
  * ```typescript
  * const text = signal("hello");
- * const methods = getStringSignalMethods<"live">(text);
+ * const methods = getStringSignalMethods(text);
  * methods.mutate.toUpperCase();
  * console.log(methods.length().value); // 5
  * ```

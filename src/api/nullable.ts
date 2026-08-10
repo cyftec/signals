@@ -9,18 +9,17 @@ import {
  * Adds generic logical helpers to a nullable primitive input.
  *
  * The wrapper exposes `or`, `is`, and `if` operations while preserving the
- * runtime liveness of the input: live inputs produce derived results, while
- * plain and dead inputs produce dead-signal snapshots.
+ * derived result helpers for any accepted plain value or signal input.
  *
  * @template I - The concrete plain or signal input type.
  * @param input - A value whose plain type includes at least one primitive member.
- * @returns Generic helper methods specialized to the input's value and liveness.
+ * @returns Generic helper methods specialized to the input's plain value type.
  *
  * @remarks
  * - The type constraint rejects inputs with no primitive member.
  * - `or` uses JavaScript truthiness, not only nullishness.
  * - Comparisons accept signal-capable operands.
- * - Plain and dead inputs snapshot every operand when a result helper is called.
+ * - Result helpers are lazy derived signals, including for plain inputs.
  *
  * @example
  * ```typescript
@@ -31,8 +30,8 @@ import {
  * ```
  *
  * @see {@link MaybeSignal} - Describes accepted wrapper inputs.
- * @see {@link DeadSignal} - Represents non-live helper results.
- * @see {@link DerivedSignal} - Represents live helper results.
+ * @see {@link DerivedSignal} - Represents helper results.
+ * @see {@link value} - Unwraps signal operands.
  */
 export const nullable = <I extends MaybeSignal<unknown>>(
   input: I &

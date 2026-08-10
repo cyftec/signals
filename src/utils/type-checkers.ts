@@ -11,7 +11,7 @@ import { value } from "./value-getter";
  * @returns `true` for the source discriminator and `false` otherwise.
  *
  * @remarks
- * - Derived signals, dead signals, nullish values, and ordinary values return `false`.
+ * - Derived signals, nullish values, and ordinary values return `false`.
  * - A plain object can satisfy this check by carrying the matching discriminator.
  * - The check does not read `value` and therefore does not collect dependencies.
  *
@@ -38,7 +38,7 @@ export const valueIsSourceSignal = (input: MaybeSignal<any>): boolean =>
  * @returns `true` for the derived discriminator and `false` otherwise.
  *
  * @remarks
- * - Source signals, dead signals, nullish values, and ordinary values return `false`.
+ * - Source signals, nullish values, and ordinary values return `false`.
  * - A plain object can satisfy this check by carrying the matching discriminator.
  * - The check does not read `value` and therefore does not collect dependencies.
  *
@@ -58,26 +58,23 @@ export const valueIsDerivedSignal = (input: MaybeSignal<any>): boolean =>
 /**
  * Checks whether a value carries either live-signal discriminator.
  *
- * Source and derived discriminator strings are accepted; dead signals and all
- * other values are rejected.
+ * Source and derived discriminator strings are accepted; all other values are rejected.
  *
  * @param input - The value to inspect.
  * @returns `true` for a structurally recognized source or derived signal.
  *
  * @remarks
  * - The check is structural and does not validate other signal members.
- * - Dead signals intentionally return `false`.
  * - The check does not read `value` and therefore does not collect dependencies.
  *
  * @example
  * ```typescript
  * valueIsSignal(signal(1)); // true
- * valueIsSignal(deadSignal(1)); // false
  * ```
  *
- * @see {@link LiveSignal} - The corresponding union type.
- * @see {@link valueIsSignal} - Also accepts dead signals.
- * @see {@link valueIsDeadSignal} - Checks the non-live discriminator.
+ * @see {@link Signal} - The corresponding union type.
+ * @see {@link valueIsSourceSignal} - Checks only the writable discriminator.
+ * @see {@link valueIsDerivedSignal} - Checks only the derived discriminator.
  */
 export const valueIsSignal = (input: MaybeSignal<any>): boolean =>
   ["source-signal", "derived-signal"].includes(input?.type);
@@ -94,13 +91,12 @@ export const valueIsSignal = (input: MaybeSignal<any>): boolean =>
  * @remarks
  * - Empty arrays return `true`.
  * - Nullish, numeric, boolean, and object values return `false`.
- * - Live signal inputs are read reactively and can be collected as dependencies.
+ * - Source-signal inputs can be collected as effect dependencies when read.
  * - The implementation unwraps separately for each half of the boolean expression.
  *
  * @example
  * ```typescript
  * valueIsMaybeSignalValueOfStringOrArray(signal("text")); // true
- * valueIsMaybeSignalValueOfStringOrArray(deadSignal([1])); // true
  * valueIsMaybeSignalValueOfStringOrArray(1); // false
  * ```
  *

@@ -23,7 +23,6 @@ import { MutatingAndNonMutatingMethods, NonMutatingMethods } from "./types";
  * and returns the array, object, string, or number projection methods that
  * match that runtime value.
  *
- * @template InputSignal - Whether method results are live derived signals or dead snapshots
  * @template T - The signal value type
  * @param baseSignal - The base signal whose value the selected methods read
  * @param nonNullableInitialValue - Optional non-null value used only to select a method family
@@ -31,14 +30,14 @@ import { MutatingAndNonMutatingMethods, NonMutatingMethods } from "./types";
  *
  * @remarks
  * - Array detection precedes plain-object detection
- * - Live inputs produce `DerivedSignal` projections; dead inputs produce snapshot `DeadSignal` projections
+ * - All inputs produce `DerivedSignal` projections; inputs produce `DerivedSignal` projections
  * - The optional hint permits method selection when the current initial value is nullable
  * - Unsupported primitive types receive no data-specific methods
  *
  * @example
  * ```typescript
  * const text = signal("  hello  ");
- * const methods = getNonMutatingDataMethods<"live", string>(text);
+ * const methods = getNonMutatingDataMethods<string>(text);
  * console.log(methods.trim().value); // "hello"
  * ```
  *
@@ -87,7 +86,6 @@ export const getNonMutatingDataMethods = <T>(
  * hint, and builds the method surface appropriate for arrays, plain objects,
  * strings, numbers, or booleans.
  *
- * @template InputSignal - The liveness category used by non-mutating results
  * @template T - The source signal value type
  * @param baseSignal - The mutable base signal that selected methods read or update
  * @param nonNullableInitialValue - Optional non-null value used only to select a method family
@@ -95,14 +93,14 @@ export const getNonMutatingDataMethods = <T>(
  *
  * @remarks
  * - Mutators are grouped under the returned `.mutate` object
- * - Non-mutating methods are direct members and follow the requested liveness category
+ * - Non-mutating methods are direct members and follow the requested derived result type
  * - The optional hint permits method selection for a nullable initial value
  * - Unsupported primitive types receive no data-specific methods
  *
  * @example
  * ```typescript
  * const items = signal([1, 2]);
- * const methods = getMutatingAndNonMutatingDataMethods<"live", number[]>(items);
+ * const methods = getMutatingAndNonMutatingDataMethods<number[]>(items);
  * methods.mutate.push(3);
  * console.log(methods.length().value); // 3
  * ```

@@ -120,22 +120,21 @@ export const getArrayMutatingMethods = <T extends any[]>(
  * Creates intrinsic non-mutating methods for array signals.
  *
  * Adapts standard read-only array operations so each result has the same
- * liveness category as the input signal.
+ * derived result type as the input signal.
  *
- * @template InputSignal - Whether results are live derived signals or dead snapshots
  * @template T - The array type
  * @param baseArraySignal - The base array signal to access values from
  * @returns Intrinsic non-mutating methods for array signals
  *
  * @remarks
- * - Live inputs produce `DerivedSignal` results that react to the base and signal arguments
- * - Dead inputs produce snapshot `DeadSignal` results
+ * - All inputs produce `DerivedSignal` results that react to the base and signal arguments
+ * - All inputs produce `DerivedSignal` results
  * - Methods include element lookup, transforms, reducers, predicates, and copy helpers
  *
  * @example
  * ```typescript
  * const items = signal([1, 2, 3]);
- * const methods = getArrayIntrinsicNonMutatingMethods<"live", number[]>(items);
+ * const methods = getArrayIntrinsicNonMutatingMethods<number[]>(items);
  * const doubled = methods.map((item) => item * 2);
  * console.log(doubled.value); // [2, 4, 6]
  * ```
@@ -279,9 +278,8 @@ export const getArrayIntrinsicNonMutatingMethods = <T extends any[]>(
  * Creates custom non-mutating methods for array signals.
  *
  * Provides the library-specific `lastItem()` and `partition()` projections,
- * returning results that follow the liveness category of the input.
+ * returning results that follow the derived result type of the input.
  *
- * @template InputSignal - Whether results are live derived signals or dead snapshots
  * @template T - The array type
  * @param baseArraySignal - The base array signal to access values from
  * @returns Custom non-mutating methods for array signals
@@ -289,12 +287,12 @@ export const getArrayIntrinsicNonMutatingMethods = <T extends any[]>(
  * @remarks
  * - `lastItem()` projects the final item without changing the base array
  * - `partition()` returns passing and failing groups and honors the predicate `thisArg`
- * - Live inputs produce `DerivedSignal` results; dead inputs produce snapshot `DeadSignal` results
+ * - All inputs produce `DerivedSignal` results; inputs produce `DerivedSignal` results
  *
  * @example
  * ```typescript
  * const items = signal([1, 2, 3, 4]);
- * const methods = getArrayCustomNonMutatingMethods<"live", number[]>(items);
+ * const methods = getArrayCustomNonMutatingMethods<number[]>(items);
  * const [even, odd] = methods.partition((item) => item % 2 === 0);
  * console.log(even.value, odd.value); // [2, 4], [1, 3]
  * ```
@@ -337,20 +335,18 @@ export const getArrayCustomNonMutatingMethods = <T extends any[]>(
  * Merges the intrinsic array projections with the library-specific projections
  * into the non-mutating method surface attached to array signals.
  *
- * @template InputSignal - Whether results are live derived signals or dead snapshots
  * @template T - The array type
  * @param baseArraySignal - The base array signal to access values from
  * @returns Combined non-mutating methods for array signals
  *
  * @remarks
- * - Live inputs produce reactive `DerivedSignal` results
- * - Dead inputs produce snapshot `DeadSignal` results
+ * - Every projection returns a lazy `DerivedSignal`.
  * - This bundle does not include mutators
  *
  * @example
  * ```typescript
- * const items = deadSignal([1, 2, 3]);
- * const methods = getArrayNonMutatingMethods<"non-live", number[]>(items);
+ * const items = signal([1, 2, 3]);
+ * const methods = getArrayNonMutatingMethods<number[]>(items);
  * console.log(methods.lastItem().value); // 3
  * ```
  *
@@ -370,7 +366,6 @@ export const getArrayNonMutatingMethods = <T extends any[]>(
  * Combines a nested `.mutate` object with the direct non-mutating projections
  * used by an array source signal.
  *
- * @template InputSignal - The liveness category used by non-mutating results
  * @template T - The array type
  * @param baseArraySignal - The base array signal to access values from
  * @returns Combined methods for array source signals
@@ -378,12 +373,12 @@ export const getArrayNonMutatingMethods = <T extends any[]>(
  * @remarks
  * - Mutation methods are available under `.mutate`
  * - Non-mutating methods are direct members of the returned object
- * - Live inputs produce `DerivedSignal` projections; a non-live type produces snapshots
+ * - Every projection returns a lazy `DerivedSignal`.
  *
  * @example
  * ```typescript
  * const items = signal([1, 2]);
- * const methods = getArrayMutatingAndNonMutatingMethods<"live", number[]>(items);
+ * const methods = getArrayMutatingAndNonMutatingMethods<number[]>(items);
  * methods.mutate.push(3);
  * console.log(methods.length().value); // 3
  * ```
