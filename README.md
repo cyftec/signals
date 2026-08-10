@@ -1,9 +1,9 @@
 # @cyftec/signals
 
-`@cyftec/signals` is a TypeScript signal library with mutable source values,
-lazy derived values, synchronous effects, and data-specific helpers.
+A TypeScript signal library with mutable source values, lazy derived values,
+synchronous effects, and data-specific helpers.
 
-## Install
+## Installation
 
 ```bash
 bun add @cyftec/signals
@@ -24,60 +24,64 @@ effect(() => {
 count.value = 2;
 ```
 
-`effect()` runs its callback immediately. Source signals read during that
-initial run are permanently connected to the effect; their later writes run the
-callback synchronously. The receiver returned by `effect()` has no disposal
-API.
+`effect()` runs immediately. Source signals read during that initial run become
+permanent dependencies, and later writes rerun the effect synchronously.
 
-`derive()` creates a lazy value getter. The catcher runs whenever
-`.value` is read; it does not cache a result, maintain a previous value, or
-notify dependents on its own.
+`derive()` is lazy: its catcher runs every time `.value` is read. Derived
+signals do not cache, retain prior values, or independently notify effects.
 
-## Data-specific helpers
+## Highlights
 
-Source signals attach generic logical helpers and a method family selected from
-the initial value (or the optional second argument):
+- Writable source signals via `signal()` and lazy read-only projections via
+  `derive()`.
+- Synchronous effects with fixed dependencies.
+- Array, object, string, number, and boolean helper families selected from the
+  initial value.
+- Convenience APIs: `compute`, `tmpl`, `receive`, `transmit`, `promstates`,
+  and `nullable`.
+- Directional TypeScript variance for signal containers.
 
-```ts
-const items = signal([1, 2, 3]);
-const last = items.lastItem();
-items.mutate.push(4);
-console.log(last.value); // 4
+## Documentation
 
-const user = signal({ name: "Ada", active: false });
-const name = user.get("name");
-user.mutate.set({ active: true });
-
-const text = signal<string | undefined>(undefined, "");
-text.value = "  hello  ";
-console.log(text.trim().value); // "hello"
-```
-
-Arrays, plain objects, strings, numbers, and source booleans receive their
-respective helpers. Mutators are available only on source signals beneath
-`.mutate`; projections always return a lazy `DerivedSignal`.
-
-## Main exports
-
-- `signal`, `derive`, and `effect`
-- `compute`, `tmpl`, `receive`, and `transmit`
-- `promstates` and `nullable`
-- `value`, `getPlainMethodParams`, and runtime signal guards
-
-See [semantics](./docs-architecture/semantics.md) for the behavioral contract,
-[behavior](./docs-architecture/behavior.md) for the API inventory, and
-[overview](./docs-architecture/overview.md) for implementation details.
+The detailed behavioral contract, API inventory, architecture, type-variance
+rules, development workflow, and maintainer instructions are in
+[AGENTS.md](./AGENTS.md). That document is authoritative for repository
+semantics; this README is intentionally a concise introduction.
 
 ## Development
 
+This project is Bun-first.
+
 ```bash
 bun install
-bun run test:runtime
+bun run test
 bun run test:coverage
 bun run build:meta
 bun run build:validate
 ```
 
-Run `bun run test:types` to verify the public TypeScript contract, including
-directional widening such as assigning `Signal<number>` where
-`Signal<number | boolean | string>` is expected.
+Run `bun run test:types` to check the public TypeScript contract.
+
+## Contributing
+
+Contributions are welcome. Please read the [contribution guidelines](./CONTRIBUTING.md)
+before opening an issue or pull request. In particular, this library has its
+own reactive semantics: changes must be grounded in its source, tests, and
+technical reference rather than assumptions from another reactive library.
+
+## Issues and pull requests
+
+Use the GitHub **New issue** flow to select the bug-report or feature-request
+template. Pull requests automatically receive a template covering summary,
+validation, semantics, and documentation. See the
+[contribution guidelines](./CONTRIBUTING.md) for the expected workflow.
+
+## Code of conduct
+
+Participation in this project is governed by the
+[Code of Conduct](./CODE_OF_CONDUCT.md). By participating, you agree to follow
+it.
+
+## License
+
+This project is licensed under the [MIT License](./LICENSE).
