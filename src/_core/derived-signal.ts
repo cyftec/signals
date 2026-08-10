@@ -7,6 +7,7 @@ import {
   IsExactlyAny,
   NonMutatingMethods,
 } from "./data-specific-methods";
+import { deadZone } from "./dead-zone";
 
 type DerivedSignalMethods<T> =
   IsExactlyAny<T> extends true
@@ -28,6 +29,7 @@ type DerivedSignalMethods<T> =
  * - Derived signals do not store a previous value or expose a setter.
  * - The catcher is invoked for each value read; its result is not cached.
  * - Reads performed by the catcher can connect source signals to an installing effect.
+ * - nonReactiveValue invokes the catcher without connecting its source reads.
  *
  * @example
  * ```typescript
@@ -56,6 +58,7 @@ export type DerivedSignal<T> = BaseDerivedSignal<T> & DerivedSignalMethods<T>;
  * - The signal has no cached value or independent update lifecycle.
  * - Reading value evaluates the catcher synchronously and propagates its errors.
  * - Source-signal reads inside the catcher are visible while an effect is installed.
+ * - Reading nonReactiveValue evaluates the catcher without collecting its source reads.
  *
  * @example
  * ```typescript
@@ -74,6 +77,10 @@ export const derive = <T>(
   let derivedSignal: BaseDerivedSignal<T> = {
     get type(): SignalType {
       return "derived-signal";
+    },
+
+    get nonReactiveValue() {
+      return deadZone(signalCatcherFn);
     },
 
     get value(): T {

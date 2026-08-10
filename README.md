@@ -12,13 +12,14 @@ bun add @cyftec/signals
 ## Quick start
 
 ```ts
-import { derive, effect, signal } from "@cyftec/signals";
+import { deadZone, derive, effect, signal } from "@cyftec/signals";
 
 const count = signal(1);
 const doubled = derive(() => count.value * 2);
 
 effect(() => {
   console.log(count.value, doubled.value);
+  console.log(deadZone(() => count.value)); // evaluated without subscribing
 });
 
 count.value = 2;
@@ -30,11 +31,16 @@ permanent dependencies, and later writes rerun the effect synchronously.
 `derive()` is lazy: its catcher runs every time `.value` is read. Derived
 signals do not cache, retain prior values, or independently notify effects.
 
+Use `deadZone(callback)` during an effect's initial run to evaluate signal reads
+without making them dependencies. Individual source and derived signals also
+provide `nonReactiveValue` for a single non-collecting read.
+
 ## Highlights
 
 - Writable source signals via `signal()` and lazy read-only projections via
   `derive()`.
 - Synchronous effects with fixed dependencies.
+- `deadZone()` and `nonReactiveValue` for explicitly non-collecting reads.
 - Array, object, string, number, and boolean helper families selected from the
   initial value.
 - Convenience APIs: `compute`, `tmpl`, `receive`, `transmit`, `promstates`,

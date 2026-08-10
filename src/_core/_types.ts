@@ -24,6 +24,7 @@ export type SignalConnector = {
     readonly id: number;
     readonly run: () => void;
   }) => void;
+  readonly ignoreReceiver: <T>(callbackWithSignals: () => T) => T;
   readonly connectWithNewReceiver: (signal: BaseSourceSignal<unknown>) => void;
   readonly processSignal: (signal: BaseSourceSignal<unknown>) => void;
 };
@@ -82,6 +83,7 @@ export type SignalType = "source-signal" | "derived-signal";
  *
  * @remarks
  * - Reading value returns an immutable-library copy for objects and arrays.
+ * - Reading nonReactiveValue does not collect an installing effect and returns the stored value directly.
  * - mutateWith() computes an assignment from the current stored value.
  * - The declaration permits a narrower source-signal view where a wider view is expected.
  *
@@ -98,6 +100,7 @@ export type BaseSourceSignal<T> = {
   readonly type: SignalType;
   readonly id: number;
   readonly prevValue: T | undefined;
+  get nonReactiveValue(): T;
   get value(): T;
   set value(newValue: T);
   mutateWith(mutatedSignalEvaluator: (old: T) => T): void;
@@ -114,6 +117,7 @@ export type BaseSourceSignal<T> = {
  * @remarks
  * - Derived signals have no identifier, previous value, or setter.
  * - Reads can connect source signals accessed by the catcher to an installing effect.
+ * - nonReactiveValue evaluates the catcher without connecting those source reads.
  *
  * @example
  * ```typescript
@@ -126,7 +130,8 @@ export type BaseSourceSignal<T> = {
  */
 export type BaseDerivedSignal<T> = {
   readonly type: SignalType;
-  readonly value: T;
+  get nonReactiveValue(): T;
+  get value(): T;
 };
 
 /**

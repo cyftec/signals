@@ -37,6 +37,16 @@ export const Connector = ((): SignalConnector => {
       _receivers.set(receiver.id, receiver);
     },
 
+    ignoreReceiver<T>(callbackWithSignals: () => T): T {
+      const preservedReceiver = _newReceiver;
+      _newReceiver = null;
+      try {
+        return callbackWithSignals();
+      } finally {
+        _newReceiver = preservedReceiver;
+      }
+    },
+
     connectWithNewReceiver(signal: BaseSourceSignal<unknown>) {
       if (_newReceiver) {
         if (_connectorMap.has(signal)) {

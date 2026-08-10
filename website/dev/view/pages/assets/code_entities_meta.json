@@ -9,7 +9,7 @@
         "isExported": true,
         "exportKind": "named",
         "category": "core",
-        "signature": "export const Connector = ((): SignalConnector => {\n  let _newReceiver: Receiver | null = null;\n  const _receivers = new Map<number, Receiver>();\n  const _connectorMap = new Map<BaseSourceSignal<unknown>, Set<number>>();\n\n  const signalConnector: SignalConnector = {\n    installReceiver(receiver: Receiver) {\n      _newReceiver = receiver;\n      try {\n        receiver.run();\n      } finally {\n        _newReceiver = null;\n      }\n      _receivers.set(receiver.id, receiver);\n    },\n\n    connectWithNewReceiver(signal: BaseSourceSignal<unknown>) {\n      if (_newReceiver) {\n        if (_connectorMap.has(signal)) {\n          _connectorMap.get(signal)!.add(_newReceiver!.id);\n        } else {\n          const newReceiverSet: Set<number> = new Set([_newReceiver!.id]);\n          _connectorMap.set(signal, newReceiverSet);\n        }\n      }\n    },\n\n    processSignal(signal: BaseSourceSignal<unknown>) {\n      const receiverIDs = _connectorMap.get(signal);\n      receiverIDs?.forEach((receiverID) => {\n        const receiver = _receivers.get(receiverID);\n        if (!receiver)\n          throw `WTF! No receiver found for the receiver ID - ${receiverID}?`;\n\n        receiver.run();\n      });\n    },\n  };\n\n  return signalConnector;\n})();",
+        "signature": "export const Connector = ((): SignalConnector => {\n  let _newReceiver: Receiver | null = null;\n  const _receivers = new Map<number, Receiver>();\n  const _connectorMap = new Map<BaseSourceSignal<unknown>, Set<number>>();\n\n  const signalConnector: SignalConnector = {\n    installReceiver(receiver: Receiver) {\n      _newReceiver = receiver;\n      try {\n        receiver.run();\n      } finally {\n        _newReceiver = null;\n      }\n      _receivers.set(receiver.id, receiver);\n    },\n\n    ignoreReceiver<T>(callbackWithSignals: () => T): T {\n      const preservedReceiver = _newReceiver;\n      _newReceiver = null;\n      try {\n        return callbackWithSignals();\n      } finally {\n        _newReceiver = preservedReceiver;\n      }\n    },\n\n    connectWithNewReceiver(signal: BaseSourceSignal<unknown>) {\n      if (_newReceiver) {\n        if (_connectorMap.has(signal)) {\n          _connectorMap.get(signal)!.add(_newReceiver!.id);\n        } else {\n          const newReceiverSet: Set<number> = new Set([_newReceiver!.id]);\n          _connectorMap.set(signal, newReceiverSet);\n        }\n      }\n    },\n\n    processSignal(signal: BaseSourceSignal<unknown>) {\n      const receiverIDs = _connectorMap.get(signal);\n      receiverIDs?.forEach((receiverID) => {\n        const receiver = _receivers.get(receiverID);\n        if (!receiver)\n          throw `WTF! No receiver found for the receiver ID - ${receiverID}?`;\n\n        receiver.run();\n      });\n    },\n  };\n\n  return signalConnector;\n})();",
         "parameters": [],
         "typeParameters": [],
         "tsdoc": {
@@ -33,6 +33,57 @@
         "sourcePath": "src/_core/connector.ts"
       },
       {
+        "name": "deadZone",
+        "kind": "const",
+        "filePath": "src/_core/dead-zone.ts",
+        "isCallable": true,
+        "isExported": true,
+        "exportKind": "named",
+        "category": "core",
+        "signature": "export const deadZone = <T>(callbackWithSignals: () => T): T => {\n  return Connector.ignoreReceiver(callbackWithSignals);\n};",
+        "parameters": [
+          {
+            "name": "callbackWithSignals",
+            "type": "() => T",
+            "optional": false
+          }
+        ],
+        "typeParameters": [
+          "T"
+        ],
+        "tsdoc": {
+          "title": "Evaluates a callback without collecting source-signal reads for the currently installing effect.",
+          "summary": "The callback runs synchronously with dependency collection suspended, while\npreserving its return value and error behavior.",
+          "remarks": [
+            "- The zone affects only dependency collection during an effect's immediate run.\n- Reads inside the callback are evaluated normally but do not become dependencies.\n- Nested zones are supported, and the prior collection context is restored if the callback throws."
+          ],
+          "examples": [
+            "```typescript\nconst tracked = signal(1);\nconst sampled = signal(2);\n\neffect(() => {\n  console.log(tracked.value);\n  console.log(deadZone(() => sampled.value));\n});\n\nsampled.value = 3; // does not rerun the effect\n```"
+          ],
+          "params": [
+            {
+              "name": "callbackWithSignals",
+              "description": "The callback that may read source or derived signals."
+            }
+          ],
+          "returns": [
+            "The callback result."
+          ],
+          "see": [
+            "{@link effect} - Installs the dependency-collection context.",
+            "{@link BaseSourceSignal.nonReactiveValue} - Reads one signal without collecting it."
+          ],
+          "template": [
+            {
+              "name": "T",
+              "description": "The callback result type."
+            }
+          ],
+          "deprecated": []
+        },
+        "sourcePath": "src/_core/dead-zone.ts"
+      },
+      {
         "name": "derive",
         "kind": "const",
         "filePath": "src/_core/derived-signal.ts",
@@ -40,7 +91,7 @@
         "isExported": true,
         "exportKind": "named",
         "category": "core",
-        "signature": "export const derive = <T>(\n  signalCatcherFn: () => T,\n  nonNullInitialValue?: NonNullable<T>,\n): DerivedSignal<T> => {\n  let derivedSignal: BaseDerivedSignal<T> = {\n    get type(): SignalType {\n      return \"derived-signal\";\n    },\n\n    get value(): T {\n      return signalCatcherFn();\n    },\n  };\n\n  Object.assign(derivedSignal, getGenericMethods<T>(derivedSignal as any));\n  Object.assign(\n    derivedSignal,\n    getNonMutatingDataMethods<T>(derivedSignal as any, nonNullInitialValue),\n  );\n\n  return derivedSignal as DerivedSignal<T>;\n};",
+        "signature": "export const derive = <T>(\n  signalCatcherFn: () => T,\n  nonNullInitialValue?: NonNullable<T>,\n): DerivedSignal<T> => {\n  let derivedSignal: BaseDerivedSignal<T> = {\n    get type(): SignalType {\n      return \"derived-signal\";\n    },\n\n    get nonReactiveValue() {\n      return deadZone(signalCatcherFn);\n    },\n\n    get value(): T {\n      return signalCatcherFn();\n    },\n  };\n\n  Object.assign(derivedSignal, getGenericMethods<T>(derivedSignal as any));\n  Object.assign(\n    derivedSignal,\n    getNonMutatingDataMethods<T>(derivedSignal as any, nonNullInitialValue),\n  );\n\n  return derivedSignal as DerivedSignal<T>;\n};",
         "parameters": [
           {
             "name": "signalCatcherFn",
@@ -60,7 +111,7 @@
           "title": "Creates a read-only lazy signal from a value-catching function.",
           "summary": "The returned signal invokes the catcher when its value getter is read and\nattaches generic and selected non-mutating data-specific helpers.",
           "remarks": [
-            "- The signal has no cached value or independent update lifecycle.\n- Reading value evaluates the catcher synchronously and propagates its errors.\n- Source-signal reads inside the catcher are visible while an effect is installed."
+            "- The signal has no cached value or independent update lifecycle.\n- Reading value evaluates the catcher synchronously and propagates its errors.\n- Source-signal reads inside the catcher are visible while an effect is installed.\n- Reading nonReactiveValue evaluates the catcher without collecting its source reads."
           ],
           "examples": [
             "```typescript\nconst count = signal(2);\nconst doubled = derive(() => count.value * 2);\nconsole.log(doubled.value); // 4\n```"
@@ -538,7 +589,7 @@
         "isExported": true,
         "exportKind": "named",
         "category": "core",
-        "signature": "export const getMutatingAndNonMutatingDataMethods = <T>(\n  baseSignal: Signal<T>,\n  nonNullableInitialValue?: NonNullable<T>,\n): MutatingAndNonMutatingMethods<T> => {\n  const nonNullInitialValue =\n    nonNullableInitialValue === undefined\n      ? baseSignal.value\n      : nonNullableInitialValue;\n\n  // ARRAY CHECK MUST BE BEFORE OBJECT CHECK\n  if (Array.isArray(nonNullInitialValue)) {\n    return getArrayMutatingAndNonMutatingMethods<Extract<T, any[]>>(\n      baseSignal as any,\n    ) as MutatingAndNonMutatingMethods<T>;\n  }\n\n  if (isPlainObject(nonNullInitialValue)) {\n    return getObjectMutatingAndNonMutatingMethods<\n      Extract<T, Record<string, any>>\n    >(baseSignal as any) as MutatingAndNonMutatingMethods<T>;\n  }\n\n  if (typeof nonNullInitialValue === \"string\") {\n    return getStringSignalMethods(\n      baseSignal as any,\n    ) as MutatingAndNonMutatingMethods<T>;\n  }\n\n  if (typeof nonNullInitialValue === \"number\") {\n    return getNumberSignalMethods(\n      baseSignal as any,\n    ) as MutatingAndNonMutatingMethods<T>;\n  }\n\n  if (typeof nonNullInitialValue === \"boolean\") {\n    return getBooleanSignalMethods(\n      baseSignal as any,\n    ) as MutatingAndNonMutatingMethods<T>;\n  }\n\n  return {} as MutatingAndNonMutatingMethods<T>;\n};",
+        "signature": "export const getMutatingAndNonMutatingDataMethods = <T>(\n  baseSignal: Signal<T>,\n  nonNullableInitialValue?: NonNullable<T>,\n): MutatingAndNonMutatingMethods<T> => {\n  const nonNullInitialValue =\n    nonNullableInitialValue === undefined\n      ? baseSignal.nonReactiveValue\n      : nonNullableInitialValue;\n\n  // ARRAY CHECK MUST BE BEFORE OBJECT CHECK\n  if (Array.isArray(nonNullInitialValue)) {\n    return getArrayMutatingAndNonMutatingMethods<Extract<T, any[]>>(\n      baseSignal as any,\n    ) as MutatingAndNonMutatingMethods<T>;\n  }\n\n  if (isPlainObject(nonNullInitialValue)) {\n    return getObjectMutatingAndNonMutatingMethods<\n      Extract<T, Record<string, any>>\n    >(baseSignal as any) as MutatingAndNonMutatingMethods<T>;\n  }\n\n  if (typeof nonNullInitialValue === \"string\") {\n    return getStringSignalMethods(\n      baseSignal as any,\n    ) as MutatingAndNonMutatingMethods<T>;\n  }\n\n  if (typeof nonNullInitialValue === \"number\") {\n    return getNumberSignalMethods(\n      baseSignal as any,\n    ) as MutatingAndNonMutatingMethods<T>;\n  }\n\n  if (typeof nonNullInitialValue === \"boolean\") {\n    return getBooleanSignalMethods(\n      baseSignal as any,\n    ) as MutatingAndNonMutatingMethods<T>;\n  }\n\n  return {} as MutatingAndNonMutatingMethods<T>;\n};",
         "parameters": [
           {
             "name": "baseSignal",
@@ -598,7 +649,7 @@
         "isExported": true,
         "exportKind": "named",
         "category": "core",
-        "signature": "export const getNonMutatingDataMethods = <T>(\n  baseSignal: Signal<T>,\n  nonNullableInitialValue?: NonNullable<T>,\n): NonMutatingMethods<T> => {\n  const nonNullInitialValue =\n    nonNullableInitialValue === undefined\n      ? baseSignal.value\n      : nonNullableInitialValue;\n\n  // ARRAY CHECK MUST BE BEFORE OBJECT CHECK\n  if (Array.isArray(nonNullInitialValue)) {\n    return getArrayNonMutatingMethods<Extract<T, any[]>>(\n      baseSignal as any,\n    ) as NonMutatingMethods<T>;\n  }\n\n  if (isPlainObject(nonNullInitialValue)) {\n    return getObjectNonMutatingMethods<Extract<T, Record<string, any>>>(\n      baseSignal as any,\n    ) as NonMutatingMethods<T>;\n  }\n\n  if (typeof nonNullInitialValue === \"string\") {\n    return getStringSignalNonMutatingMethods(\n      baseSignal as any,\n    ) as unknown as NonMutatingMethods<T>;\n  }\n\n  if (typeof nonNullInitialValue === \"number\") {\n    return getNumberSignalMethods(baseSignal as any) as NonMutatingMethods<T>;\n  }\n\n  return {} as NonMutatingMethods<T>;\n};",
+        "signature": "export const getNonMutatingDataMethods = <T>(\n  baseSignal: Signal<T>,\n  nonNullableInitialValue?: NonNullable<T>,\n): NonMutatingMethods<T> => {\n  const nonNullInitialValue =\n    nonNullableInitialValue === undefined\n      ? baseSignal.nonReactiveValue\n      : nonNullableInitialValue;\n\n  // ARRAY CHECK MUST BE BEFORE OBJECT CHECK\n  if (Array.isArray(nonNullInitialValue)) {\n    return getArrayNonMutatingMethods<Extract<T, any[]>>(\n      baseSignal as any,\n    ) as NonMutatingMethods<T>;\n  }\n\n  if (isPlainObject(nonNullInitialValue)) {\n    return getObjectNonMutatingMethods<Extract<T, Record<string, any>>>(\n      baseSignal as any,\n    ) as NonMutatingMethods<T>;\n  }\n\n  if (typeof nonNullInitialValue === \"string\") {\n    return getStringSignalNonMutatingMethods(\n      baseSignal as any,\n    ) as unknown as NonMutatingMethods<T>;\n  }\n\n  if (typeof nonNullInitialValue === \"number\") {\n    return getNumberSignalMethods(baseSignal as any) as NonMutatingMethods<T>;\n  }\n\n  return {} as NonMutatingMethods<T>;\n};",
         "parameters": [
           {
             "name": "baseSignal",
@@ -1195,7 +1246,7 @@
         "isExported": true,
         "exportKind": "named",
         "category": "core",
-        "signature": "export const signal = <T>(\n  initialValue: T,\n  nonNullInitialValue?: NonNullable<T>,\n): SourceSignal<T> => {\n  const _id = IdGenerator.newID;\n  let _prevValue: T | undefined = undefined;\n  let _value: T = newVal(initialValue);\n\n  const sourceSignal: BaseSourceSignal<T> = {\n    get type(): SignalType {\n      return \"source-signal\";\n    },\n\n    get id(): number {\n      return _id;\n    },\n\n    get prevValue(): T | undefined {\n      return _prevValue;\n    },\n\n    get value(): T {\n      Connector.connectWithNewReceiver(\n        sourceSignal as BaseSourceSignal<unknown>,\n      );\n      return newVal(_value);\n    },\n\n    set value(newSignalValue: T) {\n      if (newSignalValue === _value) {\n        console.warn(`Unncessary assignment to sourceSignal with ID - ${_id}`);\n        return;\n      }\n\n      _prevValue = _value;\n      _value = newSignalValue;\n      Connector.processSignal(sourceSignal as BaseSourceSignal<unknown>);\n    },\n\n    mutateWith(mutatedSignalEvaluator: (oldSignalValue: T) => T) {\n      const updatedValue = mutatedSignalEvaluator(_value);\n      this.value = updatedValue;\n    },\n  };\n\n  Object.assign(sourceSignal, getGenericMethods<T>(sourceSignal as any));\n  Object.assign(\n    sourceSignal,\n    getMutatingAndNonMutatingDataMethods<T>(\n      sourceSignal as any,\n      nonNullInitialValue,\n    ),\n  );\n\n  return sourceSignal as SourceSignal<T>;\n};",
+        "signature": "export const signal = <T>(\n  initialValue: T,\n  nonNullInitialValue?: NonNullable<T>,\n): SourceSignal<T> => {\n  const _id = IdGenerator.newID;\n  let _prevValue: T | undefined = undefined;\n  let _value: T = newVal(initialValue);\n\n  const sourceSignal: BaseSourceSignal<T> = {\n    get type(): SignalType {\n      return \"source-signal\";\n    },\n\n    get id(): number {\n      return _id;\n    },\n\n    get prevValue(): T | undefined {\n      return _prevValue;\n    },\n\n    get nonReactiveValue() {\n      return _value;\n    },\n\n    get value(): T {\n      Connector.connectWithNewReceiver(\n        sourceSignal as BaseSourceSignal<unknown>,\n      );\n      return newVal(_value);\n    },\n\n    set value(newSignalValue: T) {\n      if (newSignalValue === _value) {\n        console.warn(`Unncessary assignment to sourceSignal with ID - ${_id}`);\n        return;\n      }\n\n      _prevValue = _value;\n      _value = newSignalValue;\n      Connector.processSignal(sourceSignal as BaseSourceSignal<unknown>);\n    },\n\n    mutateWith(mutatedSignalEvaluator: (oldSignalValue: T) => T) {\n      const updatedValue = mutatedSignalEvaluator(_value);\n      this.value = updatedValue;\n    },\n  };\n\n  Object.assign(sourceSignal, getGenericMethods<T>(sourceSignal as any));\n  Object.assign(\n    sourceSignal,\n    getMutatingAndNonMutatingDataMethods<T>(\n      sourceSignal as any,\n      nonNullInitialValue,\n    ),\n  );\n\n  return sourceSignal as SourceSignal<T>;\n};",
         "parameters": [
           {
             "name": "initialValue",
@@ -1215,7 +1266,7 @@
           "title": "Creates a writable source signal.",
           "summary": "The created signal stores an initial value, supplies generic logical helpers,\nattaches data-specific helpers for its selected value family, and synchronously\npublishes changed assignments to installed effects.",
           "remarks": [
-            "- The initial value is copied with the configured immutable-value helper.\n- Object and array assignments are exposed as copies when later read.\n- Assigning the same stored reference leaves prevValue unchanged and warns."
+            "- The initial value is copied with the configured immutable-value helper.\n- Object and array assignments are exposed as copies when later read.\n- nonReactiveValue returns the stored value directly and does not collect an effect dependency.\n- Assigning the same stored reference leaves prevValue unchanged and warns."
           ],
           "examples": [
             "```typescript\nconst count = signal(1);\ncount.value = 2;\nconsole.log(count.value); // 2\n```"
@@ -2111,7 +2162,7 @@
         "isExported": true,
         "exportKind": "named",
         "category": "core",
-        "signature": "export type BaseDerivedSignal<T> = {\n  readonly type: SignalType;\n  readonly value: T;\n};",
+        "signature": "export type BaseDerivedSignal<T> = {\n  readonly type: SignalType;\n  get nonReactiveValue(): T;\n  get value(): T;\n};",
         "parameters": [],
         "typeParameters": [
           "T"
@@ -2120,7 +2171,7 @@
           "title": "Defines the common runtime shape of a read-only derived signal.",
           "summary": "A derived signal evaluates its catcher whenever its value is read and exposes\nthe same runtime discriminator as other derived projections.",
           "remarks": [
-            "- Derived signals have no identifier, previous value, or setter.\n- Reads can connect source signals accessed by the catcher to an installing effect."
+            "- Derived signals have no identifier, previous value, or setter.\n- Reads can connect source signals accessed by the catcher to an installing effect.\n- nonReactiveValue evaluates the catcher without connecting those source reads."
           ],
           "examples": [
             "```typescript\nconst doubled: BaseDerivedSignal<number> = derive(() => 2);\nconsole.log(doubled.value); // 2\n```"
@@ -2149,7 +2200,7 @@
         "isExported": true,
         "exportKind": "named",
         "category": "core",
-        "signature": "export type BaseSourceSignal<T> = {\n  readonly type: SignalType;\n  readonly id: number;\n  readonly prevValue: T | undefined;\n  get value(): T;\n  set value(newValue: T);\n  mutateWith(mutatedSignalEvaluator: (old: T) => T): void;\n};",
+        "signature": "export type BaseSourceSignal<T> = {\n  readonly type: SignalType;\n  readonly id: number;\n  readonly prevValue: T | undefined;\n  get nonReactiveValue(): T;\n  get value(): T;\n  set value(newValue: T);\n  mutateWith(mutatedSignalEvaluator: (old: T) => T): void;\n};",
         "parameters": [],
         "typeParameters": [
           "T"
@@ -2158,7 +2209,7 @@
           "title": "Defines the common runtime shape of a writable source signal.",
           "summary": "Source signals own a value, expose the preceding assigned value, and publish\nsynchronous notifications whenever an assignment changes the stored value.",
           "remarks": [
-            "- Reading value returns an immutable-library copy for objects and arrays.\n- mutateWith() computes an assignment from the current stored value.\n- The declaration permits a narrower source-signal view where a wider view is expected."
+            "- Reading value returns an immutable-library copy for objects and arrays.\n- Reading nonReactiveValue does not collect an installing effect and returns the stored value directly.\n- mutateWith() computes an assignment from the current stored value.\n- The declaration permits a narrower source-signal view where a wider view is expected."
           ],
           "examples": [
             "```typescript\nconst count: BaseSourceSignal<number> = signal(1);\ncount.value = 2;\n```"
@@ -2377,7 +2428,7 @@
           "title": "Represents a read-only, lazily evaluated signal with helper methods.",
           "summary": "A derived signal runs its catcher only when its value getter is read and\nexposes generic and selected non-mutating data-specific helpers.",
           "remarks": [
-            "- Derived signals do not store a previous value or expose a setter.\n- The catcher is invoked for each value read; its result is not cached.\n- Reads performed by the catcher can connect source signals to an installing effect."
+            "- Derived signals do not store a previous value or expose a setter.\n- The catcher is invoked for each value read; its result is not cached.\n- Reads performed by the catcher can connect source signals to an installing effect.\n- nonReactiveValue invokes the catcher without connecting its source reads."
           ],
           "examples": [
             "```typescript\nconst count = signal(1);\nconst doubled: DerivedSignal<number> = derive(() => count.value * 2);\nconsole.log(doubled.value); // 2\n```"
@@ -3486,7 +3537,7 @@
         "isExported": true,
         "exportKind": "named",
         "category": "core",
-        "signature": "export type SignalConnector = {\n  readonly installReceiver: (effect: {\n    readonly id: number;\n    readonly run: () => void;\n  }) => void;\n  readonly connectWithNewReceiver: (signal: BaseSourceSignal<unknown>) => void;\n  readonly processSignal: (signal: BaseSourceSignal<unknown>) => void;\n};",
+        "signature": "export type SignalConnector = {\n  readonly installReceiver: (effect: {\n    readonly id: number;\n    readonly run: () => void;\n  }) => void;\n  readonly ignoreReceiver: <T>(callbackWithSignals: () => T) => T;\n  readonly connectWithNewReceiver: (signal: BaseSourceSignal<unknown>) => void;\n  readonly processSignal: (signal: BaseSourceSignal<unknown>) => void;\n};",
         "parameters": [],
         "typeParameters": [],
         "tsdoc": {
@@ -3557,7 +3608,7 @@
           "title": "Represents a writable signal with generic and data-specific helpers.",
           "summary": "A source signal stores its value, exposes the preceding assigned value, and\nsynchronously runs effects that read it while those effects were installed.",
           "remarks": [
-            "- Objects and arrays are copied when read through value.\n- Assigning the identical stored reference warns and does not notify effects.\n- The available data-specific helpers are selected from the initial value or hint.\n- A narrower value view is assignable to a matching wider source-signal view."
+            "- Objects and arrays are copied when read through value.\n- nonReactiveValue reads the stored value without registering an installing effect.\n- Assigning the identical stored reference warns and does not notify effects.\n- The available data-specific helpers are selected from the initial value or hint.\n- A narrower value view is assignable to a matching wider source-signal view."
           ],
           "examples": [
             "```typescript\nconst count: SourceSignal<number> = signal(1);\ncount.value = 2;\nconsole.log(count.prevValue); // 1\n```"

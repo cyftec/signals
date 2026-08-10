@@ -50,7 +50,7 @@ export const getNonMutatingDataMethods = <T>(
 ): NonMutatingMethods<T> => {
   const nonNullInitialValue =
     nonNullableInitialValue === undefined
-      ? baseSignal.value
+      ? baseSignal.nonReactiveValue
       : nonNullableInitialValue;
 
   // ARRAY CHECK MUST BE BEFORE OBJECT CHECK
@@ -114,7 +114,7 @@ export const getMutatingAndNonMutatingDataMethods = <T>(
 ): MutatingAndNonMutatingMethods<T> => {
   const nonNullInitialValue =
     nonNullableInitialValue === undefined
-      ? baseSignal.value
+      ? baseSignal.nonReactiveValue
       : nonNullableInitialValue;
 
   // ARRAY CHECK MUST BE BEFORE OBJECT CHECK

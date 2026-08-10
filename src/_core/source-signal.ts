@@ -29,6 +29,7 @@ type SourceSignalMethods<T> =
  *
  * @remarks
  * - Objects and arrays are copied when read through value.
+ * - nonReactiveValue reads the stored value without registering an installing effect.
  * - Assigning the identical stored reference warns and does not notify effects.
  * - The available data-specific helpers are selected from the initial value or hint.
  * - A narrower value view is assignable to a matching wider source-signal view.
@@ -60,6 +61,7 @@ export type SourceSignal<T> = BaseSourceSignal<T> & SourceSignalMethods<T>;
  * @remarks
  * - The initial value is copied with the configured immutable-value helper.
  * - Object and array assignments are exposed as copies when later read.
+ * - nonReactiveValue returns the stored value directly and does not collect an effect dependency.
  * - Assigning the same stored reference leaves prevValue unchanged and warns.
  *
  * @example
@@ -91,6 +93,10 @@ export const signal = <T>(
 
     get prevValue(): T | undefined {
       return _prevValue;
+    },
+
+    get nonReactiveValue() {
+      return _value;
     },
 
     get value(): T {

@@ -27,13 +27,14 @@ bun add @cyftec/signals
 ```
 
 ```ts
-import { derive, effect, signal } from "@cyftec/signals";
+import { deadZone, derive, effect, signal } from "@cyftec/signals";
 
 const count = signal(1);
 const doubled = derive(() => count.value * 2);
 
 effect(() => {
   console.log(count.value, doubled.value);
+  console.log(deadZone(() => count.value));
 });
 
 count.value = 2;
@@ -42,6 +43,10 @@ count.value = 2;
 `effect()` runs its callback immediately. Source signals read during that
 initial run are permanently connected to the effect; a later source write runs
 the callback synchronously. The returned receiver has no disposal API.
+
+`deadZone(callback)` evaluates a callback without recording its signal reads for
+the effect currently being installed. `nonReactiveValue` offers the same
+non-collecting read for one source or derived signal.
 
 `derive()` creates a lazy value getter. Its catcher runs whenever `.value` is
 read; it does not cache a result, keep a previous value, or independently
@@ -69,7 +74,7 @@ Arrays, plain objects, strings, numbers, and source booleans receive their
 respective helpers. Mutators exist only on source signals under `.mutate`;
 projections always return a lazy `DerivedSignal`.
 
-Main exports are `signal`, `derive`, `effect`, `compute`, `tmpl`, `receive`,
+Main exports are `signal`, `derive`, `effect`, `deadZone`, `compute`, `tmpl`, `receive`,
 `transmit`, `promstates`, `nullable`, `value`, `getPlainMethodParams`, and the
 runtime signal guards.
 
@@ -89,10 +94,11 @@ authoritative.
 
 - `type` is `"source-signal"`.
 - `value` reads the current value and accepts assignments.
+- `nonReactiveValue` reads the stored value without registering an installing effect.
 - `prevValue` is initially `undefined`, then contains the previous stored
   value after a successful assignment.
-- The initial value and every object/array getter result are copied with
-  `newVal`.
+- The initial value and every object/array `value` getter result are copied
+  with `newVal`. `nonReactiveValue` returns the stored value directly.
 - An assignment strictly equal to the stored value warns, does not notify
   effects, and does not change `prevValue`.
 - A different assignment stores the supplied value and synchronously runs the
@@ -110,6 +116,8 @@ initial value. It does not replace the stored initial value.
 
 - `type` is `"derived-signal"`.
 - Every read of `.value` invokes `catcher()` synchronously.
+- Every read of `.nonReactiveValue` invokes `catcher()` synchronously without
+  recording the source reads it makes.
 - It has no cached value, previous value, setter, notification mechanism, or
   disposal API.
 - Source signals read by the catcher can register when the derived value is
@@ -139,6 +147,21 @@ Dependency collection is intentionally fixed:
 
 There is no batching, scheduler, transaction API, dynamic dependency
 reconciliation, cycle detection, or recursion guard.
+
+#### Non-collecting reads
+
+`deadZone(callback)` temporarily suspends dependency collection for the
+callback. It returns the callback result and propagates its errors; collection
+for the surrounding effect resumes afterward, including when the callback
+throws. Nested dead zones are supported. The zone matters only during the
+immediate installation run of an effect, because later receiver runs do not
+collect dependencies.
+
+`source.nonReactiveValue` returns the source's stored value without effect
+registration. For objects and arrays this is the stored value itself, unlike
+`source.value`, which returns an immutable-helper copy. `derived.nonReactiveValue`
+evaluates its catcher inside a dead zone, so source reads reached through that
+catcher do not register the installing effect.
 
 ### Method selection and evaluation
 
@@ -228,6 +251,7 @@ Creates `SourceSignal<T>`:
 
 - `type: "source-signal"`
 - mutable `value: T`
+- readonly `nonReactiveValue: T`
 - readonly `id: number`
 - readonly `prevValue: T | undefined`
 - `mutateWith((oldValue) => nextValue): void`
@@ -241,6 +265,7 @@ Creates `DerivedSignal<T>`:
 
 - `type: "derived-signal"`
 - readonly `value: T`
+- readonly `nonReactiveValue: T`
 
 Reading `value` calls `catcher()`. It is neither a cached nor an independently
 updating computation. The optional hint selects non-mutating data methods.
@@ -258,6 +283,12 @@ type Receiver = {
 
 Only source reads during the immediate run are dependencies. `run()` invokes
 the callback but does not collect new dependencies.
+
+#### `deadZone(callback)`
+
+Evaluates `callback` and returns its result while suppressing dependency
+collection for all signal reads made by that callback. The surrounding effect's
+collection context is restored after return or throw.
 
 ### Attached method families
 
@@ -390,6 +421,11 @@ effect(callback)
   ├─ runs callback once
   └─ source.value reads register that receiver
 
+deadZone(callback)
+  ├─ temporarily clears the installing receiver
+  ├─ runs callback
+  └─ restores the prior receiver in finally
+
 source.value assignment
   └─ runs every registered receiver synchronously
 
@@ -409,6 +445,7 @@ getter whose source reads can be observed only while an effect installs.
   and attaches helpers.
 - `src/_core/derived-signal.ts` constructs the lazy derived getter and
   attaches non-mutating helpers.
+- `src/_core/dead-zone.ts` exposes the public non-collecting callback helper.
 - `src/_core/effect.ts` creates the immediate callback receiver.
 - `src/_core/connector.ts` holds the currently installing receiver and the
   source-to-receiver registration map.
@@ -431,6 +468,11 @@ write looks up that set, resolves each ID from the receiver map, and calls
 `run()` directly. This makes propagation synchronous and accounts for the
 fixed dependency set and registration-order execution.
 
+`deadZone` delegates to the connector to temporarily clear the installing
+receiver. The connector restores the previous receiver with `finally`, which
+keeps subsequent reads in the surrounding effect collectible even if the
+dead-zone callback throws.
+
 ### Source storage
 
 A source signal closes over an immutable-helper copy of its initial value, its
@@ -443,6 +485,10 @@ stores the input, and asks the connector to run receivers.
 function with the stored value and forwards the returned value to the public
 setter.
 
+`nonReactiveValue` bypasses registration and returns `_value` directly. This
+is useful for intentional non-collecting reads, but object and array callers
+must not mutate that returned stored reference.
+
 ### Derived construction and helper dispatch
 
 `derive(catcher, hint?)` returns an object with `type` and `value` getters.
@@ -450,6 +496,10 @@ The value getter only calls `catcher()`. Generic helpers and non-mutating data
 methods call `derive` again and therefore share this lazy behavior. The
 optional hint is passed to data-method dispatch; use it when a nullable value
 must have a method family.
+
+The `nonReactiveValue` getter invokes the same catcher inside `deadZone`, so it
+remains lazy but does not let the catcher's source reads attach to an installing
+effect.
 
 `getNonMutatingDataMethods` and `getMutatingAndNonMutatingDataMethods` select
 a family in this order: array, plain object, string, number, boolean for
