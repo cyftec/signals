@@ -1,4 +1,4 @@
-import { BaseSignal, MaybeSignal, PlainValue } from "../_core/signals";
+import { Signal, MaybeSignal, PlainValue } from "../_core/_types";
 import { valueIsSignal } from "./type-checkers";
 
 /**
@@ -30,12 +30,12 @@ import { valueIsSignal } from "./type-checkers";
  *
  * @see {@link valueIsSignal} - Performs runtime recognition.
  * @see {@link MaybeSignal} - Describes the general accepted input.
- * @see {@link BaseSignal} - Describes the additional low-level input shape.
+ * @see {@link Signal} - Describes the additional low-level input shape.
  */
-export function value<T>(input: MaybeSignal<T> | BaseSignal<T>): T;
+export function value<T>(input: MaybeSignal<T>): T;
 export function value<I>(input: I): PlainValue<I>;
 export function value(input: unknown): unknown {
   return valueIsSignal(input as MaybeSignal<unknown>)
-    ? (input as BaseSignal<unknown>).value
+    ? (input as Signal<unknown>).value
     : input;
 }

@@ -1,16 +1,9 @@
-import {
-  type BaseLiveSignal,
-  type MaybeSignal,
-  type PlainValue,
-} from "../_core";
+import { type MaybeSignal, type PlainValue } from "../_core/_types";
 import {
   type GenericMethods,
   getGenericMethods,
   type Primitive,
 } from "../_core/data-specific-methods";
-
-type NullableInputSignal<I> =
-  I extends BaseLiveSignal<any> ? "live" : "non-live";
 
 /**
  * Adds generic logical helpers to a nullable primitive input.
@@ -44,7 +37,5 @@ type NullableInputSignal<I> =
 export const nullable = <I extends MaybeSignal<unknown>>(
   input: I &
     (Extract<PlainValue<I>, Primitive> extends never ? never : unknown),
-): GenericMethods<NullableInputSignal<I>, PlainValue<I>> =>
-  getGenericMethods<NullableInputSignal<I>, PlainValue<I>>(
-    input as MaybeSignal<PlainValue<I>>,
-  );
+): GenericMethods<PlainValue<I>> =>
+  getGenericMethods<PlainValue<I>>(input as MaybeSignal<PlainValue<I>>);

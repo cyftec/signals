@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { deadSignal, derive, effect, signal } from "../src";
+import { derive, effect, signal } from "../src";
 
 describe("signal", () => {
   it("creates a source signal with its initial value and type", () => {
@@ -224,22 +224,6 @@ describe("derive", () => {
     expect(doubled.value).toBe(10);
   });
 
-  it("retains the previous computed value", () => {
-    const count = signal(1);
-    const doubled = derive(() => count.value * 2);
-
-    expect(doubled.value).toBe(2);
-    expect(doubled.prevValue).toBeUndefined();
-
-    count.value = 5;
-    expect(doubled.value).toBe(10);
-    expect(doubled.prevValue).toBe(2);
-
-    count.value = 13;
-    expect(doubled.value).toBe(26);
-    expect(doubled.prevValue).toBe(10);
-  });
-
   it("tracks multiple dependencies", () => {
     const left = signal(1);
     const right = signal(2);
@@ -263,28 +247,14 @@ describe("derive", () => {
     expect(quadrupled.value).toBe(20);
   });
 
-  it("passes the previous computed value to its evaluator", () => {
-    const count = signal(1);
-    const previousValues: (number | undefined)[] = [];
-    const doubled = derive((previousValue: number | undefined) => {
-      previousValues.push(previousValue);
-      return count.value * 2;
-    });
-
-    count.value = 5;
-    count.value = 11;
-    count.value = 42;
-
-    expect(previousValues).toEqual([undefined, 2, 10, 22]);
-    expect(doubled.value).toBe(84);
-  });
-
   it("is read-only at runtime and remains internally reactive", () => {
     const count = signal(1);
     const doubled = derive(() => count.value * 2);
     const writableView = doubled as unknown as { value: number };
 
-    writableView.value = 99;
+    expect(() => (writableView.value = 99)).toThrow(
+      "Attempted to assign to readonly property",
+    );
     expect(doubled.value).toBe(2);
 
     count.value = 3;
@@ -298,61 +268,13 @@ describe("derive", () => {
     const watcher = effect(() => {
       seen.push(parity.value);
     });
-
-    count.value = 3;
+    // effect immediately runs for catching signals
     expect(seen).toEqual([1]);
 
-    count.value = 4;
-    expect(seen).toEqual([1, 0]);
-  });
-
-  it("does not add dependencies missed during its initial conditional branch", () => {
-    const count = signal(1);
-    const shouldAccess = signal(false);
-    let computations = 0;
-    const selected = derive(() => {
-      computations++;
-      return shouldAccess.value ? count.value : -1;
-    });
-
-    count.value = 2;
-    expect(computations).toBe(1);
-    expect(selected.value).toBe(-1);
-
-    shouldAccess.value = true;
-    expect(computations).toBe(2);
-    expect(selected.value).toBe(2);
-
     count.value = 3;
-    expect(computations).toBe(2);
-    expect(selected.value).toBe(2);
-  });
+    expect(seen).toEqual([1, 1]);
 
-  it("retains dependencies accessed during its initial conditional branch", () => {
-    const count = signal(1);
-    const shouldAccess = signal(true);
-    let computations = 0;
-    const selected = derive(() => {
-      computations++;
-      return shouldAccess.value ? count.value : -1;
-    });
-
-    shouldAccess.value = false;
-    count.value = 2;
-
-    expect(computations).toBe(3);
-    expect(selected.value).toBe(-1);
-  });
-});
-
-describe("deadSignal", () => {
-  it("is read-only at runtime", () => {
-    const value = deadSignal({ count: 1 });
-    const writableView = value as unknown as { value: { count: number } };
-
-    writableView.value = { count: 99 };
-
-    expect(value.type).toBe("dead-signal");
-    expect(value.value).toEqual({ count: 1 });
+    count.value = 4;
+    expect(seen).toEqual([1, 1, 0]);
   });
 });

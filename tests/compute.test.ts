@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { compute, signal, derive } from "../src";
+import { compute, signal, derive, effect } from "../src";
 
 describe("compute", () => {
   it("should create derived signal from function with signal arguments", () => {
@@ -45,20 +45,21 @@ describe("compute", () => {
       a,
       plainB,
     );
+    expect(computeCount).toBe(1); // No computation until called
 
-    expect(computeCount).toBe(1); // Initial computation
+    effect(() => sum.value);
 
     a.value = 10;
-    expect(computeCount).toBe(2); // Recomputed due to signal change
+    expect(computeCount).toBe(3); // Recomputed due to signal change
 
     a.value = 10; // Setting to same value should not trigger recompute
-    expect(computeCount).toBe(2); // No change, no recompute
+    expect(computeCount).toBe(3); // No change, no recompute
 
     plainB = 5; // Changing plain value should not trigger recompute
-    expect(computeCount).toBe(2); // No change, no recompute
+    expect(computeCount).toBe(3); // No change, no recompute
 
     a.value = 15;
-    expect(computeCount).toBe(3); // Recomputed due to signal change
+    expect(computeCount).toBe(4); // Recomputed due to signal change
   });
 
   it("should handle mixed signal and plain value arguments", () => {

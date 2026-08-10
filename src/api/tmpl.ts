@@ -1,9 +1,4 @@
-import {
-  derive,
-  type DerivedSignal,
-  type DerivedValueGetterWithSignals,
-  type Signal,
-} from "../_core";
+import { derive, type DerivedSignal, type Signal } from "../_core";
 import { valueIsSignal } from "../utils";
 
 /**
@@ -28,11 +23,10 @@ import { valueIsSignal } from "../utils";
  *
  * @see {@link tmpl} - Consumes this expression list.
  * @see {@link Signal} - Represents directly accepted signal expressions.
- * @see {@link DerivedValueGetterWithSignals} - Represents deferred expressions.
  */
 export type StringSignalDeriverTemplateExpressions = (
   | Signal<any>
-  | DerivedValueGetterWithSignals<any>
+  | (<T>(oldValue: T) => T)
   | any
 )[];
 

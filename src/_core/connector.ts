@@ -1,9 +1,9 @@
-import { Receiver, SignalConnector, SourceSignal } from "./_types";
+import { Receiver, SignalConnector, BaseSourceSignal } from "./_types";
 
 export const Connector = ((): SignalConnector => {
   let _newReceiver: Receiver | null = null;
   const _receivers = new Map<number, Receiver>();
-  const _connectorMap = new Map<SourceSignal<unknown>, Set<number>>();
+  const _connectorMap = new Map<BaseSourceSignal<unknown>, Set<number>>();
 
   const signalConnector: SignalConnector = {
     installReceiver(receiver: Receiver) {
@@ -16,7 +16,7 @@ export const Connector = ((): SignalConnector => {
       _receivers.set(receiver.id, receiver);
     },
 
-    connectWithNewReceiver(signal: SourceSignal<unknown>) {
+    connectWithNewReceiver(signal: BaseSourceSignal<unknown>) {
       if (_newReceiver) {
         if (_connectorMap.has(signal)) {
           _connectorMap.get(signal)!.add(_newReceiver!.id);
@@ -27,7 +27,7 @@ export const Connector = ((): SignalConnector => {
       }
     },
 
-    processSignal(signal: SourceSignal<unknown>) {
+    processSignal(signal: BaseSourceSignal<unknown>) {
       const receiverIDs = _connectorMap.get(signal);
       receiverIDs?.forEach((receiverID) => {
         const receiver = _receivers.get(receiverID);

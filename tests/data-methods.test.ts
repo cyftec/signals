@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { deadSignal, derive, effect, signal } from "../src";
-import type { DeadSignal, LiveSignal, SourceSignal } from "../src";
+import { derive, effect, signal } from "../src";
+import type { Signal, SourceSignal } from "../src";
 
 type NumberArraySignal = SourceSignal<number[]>;
 type StringSignal = SourceSignal<string>;
@@ -346,51 +346,41 @@ describe("array data methods", () => {
     });
   });
 
-  it("supports non-mutating methods on derived and dead array signals", () => {
+  it("supports non-mutating methods on derived array signals", () => {
     const source = signal([3, 1, 2]);
     const derived = derive(() => source.value);
+    console.log(derived);
     const sorted = derived.toSorted((a, b) => a - b);
-    const dead = deadSignal([1, 2, 3]);
 
     expect(sorted.value).toEqual([1, 2, 3]);
-    expect(dead.map((item) => item * 2).value).toEqual([2, 4, 6]);
 
     source.value = [6, 4, 5];
     expect(sorted.value).toEqual([4, 5, 6]);
   });
 
-  it("returns derived results for live arrays and dead snapshots for dead arrays", () => {
+  it("returns derived results for arrays ", () => {
     const source = signal([1, 2, 3]);
     const derived = derive(() => source.value);
-    const dead = deadSignal([1, 2, 3]);
     const index = signal(0);
 
     const sourceItem = source.at(index);
     const derivedItem = derived.at(index);
-    const deadItem = dead.at(index);
     const [derivedPassing, derivedFailing] = derived.partition(
       (item) => item % 2 === 0,
     );
-    const [deadPassing, deadFailing] = dead.partition((item) => item % 2 === 0);
 
     expect(sourceItem.type).toBe("derived-signal");
     expect(derivedItem.type).toBe("derived-signal");
-    expect(deadItem.type).toBe("dead-signal");
     expect(derivedPassing.type).toBe("derived-signal");
     expect(derivedFailing.type).toBe("derived-signal");
-    expect(deadPassing.type).toBe("dead-signal");
-    expect(deadFailing.type).toBe("dead-signal");
 
     index.value = 1;
     source.value = [4, 5, 6];
 
     expect(sourceItem.value).toBe(5);
     expect(derivedItem.value).toBe(5);
-    expect(deadItem.value).toBe(1);
     expect(derivedPassing.value).toEqual([4, 6]);
     expect(derivedFailing.value).toEqual([5]);
-    expect(deadPassing.value).toEqual([2]);
-    expect(deadFailing.value).toEqual([1, 3]);
   });
 
   it("attaches array methods for a nullable signal after transition", () => {
@@ -840,37 +830,28 @@ describe("string data methods", () => {
     });
   });
 
-  it("supports non-mutating methods on derived and dead string signals", () => {
+  it("supports non-mutating methods on derived signals", () => {
     const source = signal("  hello   world  ");
     const derived = derive(() => source.value);
     const trimmed = derived.deepTrim();
-    const dead = deadSignal("hello");
 
     expect(trimmed.value).toBe("hello world");
-    expect(dead.toUpperCase().value).toBe("HELLO");
 
     source.value = "  hi   there  ";
     expect(trimmed.value).toBe("hi there");
   });
 
-  it("returns derived results for live strings and dead snapshots for dead strings", () => {
+  it("returns derived results for strings", () => {
     const source = signal("cat");
     const derived = derive(() => source.value.trim());
-    const dead = deadSignal("cat");
-    const deadWithWhitespace = deadSignal("  dead   value  ");
     const targetLength = signal(5);
     const fill = signal<string | undefined>(".");
 
     const sourcePadded = source.padEnd(targetLength, fill);
     const derivedUppercase = derived.toUpperCase();
-    const deadPadded = dead.padEnd(targetLength, fill);
-    const deadTrimmed = deadWithWhitespace.deepTrim();
 
     expect(sourcePadded.type).toBe("derived-signal");
     expect(derivedUppercase.type).toBe("derived-signal");
-    expect(deadPadded.type).toBe("dead-signal");
-    expect(deadTrimmed.type).toBe("dead-signal");
-    expect(deadTrimmed.value).toBe("dead value");
 
     targetLength.value = 6;
     fill.value = "-";
@@ -878,8 +859,6 @@ describe("string data methods", () => {
 
     expect(sourcePadded.value).toBe(" dog -");
     expect(derivedUppercase.value).toBe("DOG");
-    expect(deadPadded.value).toBe("cat..");
-    expect(deadTrimmed.value).toBe("dead value");
   });
 
   it("attaches string methods for a nullable signal after transition", () => {
@@ -957,40 +936,32 @@ describe("object data methods", () => {
     expect(props.count.value).toBe(2);
   });
 
-  it("supports non-mutating methods on derived and dead object signals", () => {
+  it("supports non-mutating methods on object signals", () => {
     const source = signal({ name: "Ada", count: 1 });
     const derived = derive(() => source.value);
     const name = derived.get("name");
-    const dead = deadSignal({ name: "Grace", count: 2 });
 
     expect(name.value).toBe("Ada");
-    expect(dead.keys().value).toEqual(["name", "count"]);
 
     source.mutate.set({ name: "Lin" });
     expect(name.value).toBe("Lin");
   });
 
-  it("returns derived object projections for live inputs and dead projections for dead inputs", () => {
+  it("returns derived object projections for inputs", () => {
     const source = signal({ name: "Ada", count: 1 });
     const derived = derive(() => source.value);
-    const dead = deadSignal({ name: "Grace", count: 2 });
 
     const sourceKeys = source.keys();
     const derivedName = derived.get("name");
-    const deadKeys = dead.keys();
     const sourceProps = source.props();
     const derivedProps = derived.props();
-    const deadProps = dead.props();
 
     expect(sourceKeys.type).toBe("derived-signal");
     expect(derivedName.type).toBe("derived-signal");
-    expect(deadKeys.type).toBe("dead-signal");
     expect(sourceProps.name.type).toBe("derived-signal");
     expect(sourceProps.count.type).toBe("derived-signal");
     expect(derivedProps.name.type).toBe("derived-signal");
     expect(derivedProps.count.type).toBe("derived-signal");
-    expect(deadProps.name.type).toBe("dead-signal");
-    expect(deadProps.count.type).toBe("dead-signal");
 
     source.mutate.set({ name: "Lin", count: 3 });
 
@@ -1000,9 +971,6 @@ describe("object data methods", () => {
     expect(sourceProps.count.value).toBe(3);
     expect(derivedProps.name.value).toBe("Lin");
     expect(derivedProps.count.value).toBe(3);
-    expect(deadKeys.value).toEqual(["name", "count"]);
-    expect(deadProps.name.value).toBe("Grace");
-    expect(deadProps.count.value).toBe(2);
   });
 });
 
@@ -1093,54 +1061,15 @@ describe("number data methods", () => {
     expect(confined.value).toBe(10);
   });
 
-  it("supports non-mutating methods on derived and dead number signals", () => {
+  it("supports non-mutating methods on number signals", () => {
     const source = signal(3.14159);
     const derived = derive(() => source.value);
     const fixed = derived.toFixed(2);
-    const dead = deadSignal(12.345);
 
     expect(fixed.value).toBe("3.14");
-    expect(dead.toPrecision(4).value).toBe("12.35");
 
     source.value = 2.71828;
     expect(fixed.value).toBe("2.72");
-  });
-
-  it("returns derived results for live numbers and dead snapshots for dead numbers", () => {
-    type HybridNumber = LiveSignal<number> | DeadSignal<number>;
-    const fromHybrid = (input: HybridNumber) => input.toFixed(0);
-
-    const source = signal(12.345);
-    const derived = derive(() => source.value);
-    const dead = deadSignal(12.345);
-    const deadOutsideBounds = deadSignal(30);
-    const digits = signal<number | undefined>(2);
-    const end = signal(20);
-
-    const sourceFixed = source.toFixed(digits);
-    const derivedConfined = derived.toConfined(0, end);
-    const deadFixed = dead.toFixed(digits);
-    const deadConfined = deadOutsideBounds.toConfined(0, end);
-    const hybridLiveResult = fromHybrid(source);
-    const hybridDeadResult = fromHybrid(dead);
-
-    expect(sourceFixed.type).toBe("derived-signal");
-    expect(derivedConfined.type).toBe("derived-signal");
-    expect(deadFixed.type).toBe("dead-signal");
-    expect(deadConfined.type).toBe("dead-signal");
-    expect(hybridLiveResult.type).toBe("derived-signal");
-    expect(hybridDeadResult.type).toBe("dead-signal");
-
-    digits.value = 1;
-    end.value = 10;
-    source.value = 25.55;
-
-    expect(sourceFixed.value).toBe("25.6");
-    expect(derivedConfined.value).toBe(10);
-    expect(deadFixed.value).toBe("12.35");
-    expect(deadConfined.value).toBe(20);
-    expect(hybridLiveResult.value).toBe("26");
-    expect(hybridDeadResult.value).toBe("12");
   });
 });
 

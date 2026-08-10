@@ -1,29 +1,11 @@
-import { getPlainMethodParams, value, valueIsLiveSignal } from "../../utils";
+import { getPlainMethodParams, value } from "../../utils";
+import { type Signal, MaybeSignal, MaybeSignalValues } from "../_types";
+import { derive } from "../derived-signal";
 import {
-  type BaseSignal,
-  deadSignal,
-  derive,
-  MaybeSignal,
-  MaybeSignalValues,
-} from "../signals";
-import {
-  DeriverReturnType,
-  InputSignalType,
   NumberCustomNonMutatingMethods,
   NumberIntrinsicNonMutatingMethods,
   NumberNonMutatingMethods,
 } from "./types";
-
-const getNumberMethodDeriver = <InputSignal extends InputSignalType>(
-  baseNumberSignal: BaseSignal<number>,
-) => {
-  const inputIsLiveSignal = valueIsLiveSignal(baseNumberSignal as any);
-
-  return <T>(deriver: () => T): DeriverReturnType<InputSignal, T> =>
-    (inputIsLiveSignal
-      ? derive(deriver)
-      : deadSignal(deriver())) as DeriverReturnType<InputSignal, T>;
-};
 
 /**
  * Creates intrinsic non-mutating methods for number signals.
@@ -50,36 +32,31 @@ const getNumberMethodDeriver = <InputSignal extends InputSignalType>(
  * @see {@link NumberIntrinsicNonMutatingMethods} - The returned method contract
  * @see {@link getNumberCustomNonMutatingMethods} - For numeric confinement
  */
-export const getNumberIntrinsicNonMutatingMethods = <
-  InputSignal extends InputSignalType,
->(
-  baseNumberSignal: BaseSignal<number>,
-): NumberIntrinsicNonMutatingMethods<InputSignal> => {
-  const deriveFromBase =
-    getNumberMethodDeriver<InputSignal>(baseNumberSignal);
-
+export const getNumberIntrinsicNonMutatingMethods = (
+  baseNumberSignal: Signal<number>,
+): NumberIntrinsicNonMutatingMethods => {
   return {
     toExponential: (
       ...args: MaybeSignalValues<Parameters<number["toExponential"]>>
     ) =>
-      deriveFromBase(() =>
+      derive(() =>
         baseNumberSignal.value.toExponential(...getPlainMethodParams(...args)),
       ),
     toFixed: (...args: MaybeSignalValues<Parameters<number["toFixed"]>>) =>
-      deriveFromBase(() =>
+      derive(() =>
         baseNumberSignal.value.toFixed(...getPlainMethodParams(...args)),
       ),
     toPrecision: (
       ...args: MaybeSignalValues<Parameters<number["toPrecision"]>>
     ) =>
-      deriveFromBase(() =>
+      derive(() =>
         baseNumberSignal.value.toPrecision(...getPlainMethodParams(...args)),
       ),
     toLocaleString: (
       locales?: MaybeSignal<string | string[] | undefined>,
       options?: MaybeSignal<Intl.NumberFormatOptions | undefined>,
     ) =>
-      deriveFromBase(() =>
+      derive(() =>
         baseNumberSignal.value.toLocaleString(value(locales), value(options)),
       ),
   };
@@ -110,17 +87,12 @@ export const getNumberIntrinsicNonMutatingMethods = <
  * @see {@link NumberCustomNonMutatingMethods} - The returned method contract
  * @see {@link getNumberIntrinsicNonMutatingMethods} - For standard number formatting
  */
-export const getNumberCustomNonMutatingMethods = <
-  InputSignal extends InputSignalType,
->(
-  baseNumberSignal: BaseSignal<number>,
-): NumberCustomNonMutatingMethods<InputSignal> => {
-  const deriveFromBase =
-    getNumberMethodDeriver<InputSignal>(baseNumberSignal);
-
+export const getNumberCustomNonMutatingMethods = (
+  baseNumberSignal: Signal<number>,
+): NumberCustomNonMutatingMethods => {
   return {
     toConfined: (start: MaybeSignal<number>, end: MaybeSignal<number>) =>
-      deriveFromBase(() => {
+      derive(() => {
         const startValue = value(start);
         const endValue = value(end);
         return baseNumberSignal.value < startValue
@@ -157,9 +129,9 @@ export const getNumberCustomNonMutatingMethods = <
  * @see {@link NumberNonMutatingMethods} - The returned method contract
  * @see {@link getNumberIntrinsicNonMutatingMethods} - For intrinsic formatting methods
  */
-export const getNumberSignalMethods = <InputSignal extends InputSignalType>(
-  baseNumberSignal: BaseSignal<number>,
-): NumberNonMutatingMethods<InputSignal> => ({
-  ...getNumberIntrinsicNonMutatingMethods<InputSignal>(baseNumberSignal),
-  ...getNumberCustomNonMutatingMethods<InputSignal>(baseNumberSignal),
+export const getNumberSignalMethods = (
+  baseNumberSignal: Signal<number>,
+): NumberNonMutatingMethods => ({
+  ...getNumberIntrinsicNonMutatingMethods(baseNumberSignal),
+  ...getNumberCustomNonMutatingMethods(baseNumberSignal),
 });

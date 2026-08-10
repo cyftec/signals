@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { derive, effect, receive, signal, transmit } from "../src";
+import { derive, effect, signal } from "../src/_core";
+import { receive, transmit } from "../src/api/connectors";
 
 describe("receive", () => {
   it("should connect multiple transmitters to a receiver", () => {

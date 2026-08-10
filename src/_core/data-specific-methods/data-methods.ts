@@ -1,5 +1,5 @@
 import { isPlainObject } from "@cyftec/immut";
-import { BaseSignal } from "../signals";
+import { Signal } from "../_types";
 import {
   getArrayMutatingAndNonMutatingMethods,
   getArrayNonMutatingMethods,
@@ -14,11 +14,7 @@ import {
   getStringSignalMethods,
   getStringSignalNonMutatingMethods,
 } from "./string";
-import {
-  InputSignalType,
-  MutatingAndNonMutatingMethods,
-  NonMutatingMethods,
-} from "./types";
+import { MutatingAndNonMutatingMethods, NonMutatingMethods } from "./types";
 
 /**
  * Selects non-mutating methods for a signal's data type.
@@ -49,47 +45,39 @@ import {
  * @see {@link NonMutatingMethods} - The conditional return type
  * @see {@link getMutatingAndNonMutatingDataMethods} - For source-signal mutators and projections
  */
-export const getNonMutatingDataMethods = <
-  InputSignal extends InputSignalType,
-  T,
->(
-  baseSignal: BaseSignal<T>,
-  nonNullableInitialValue?: NonNullable<T extends Record<string, any> ? {} : T>,
-): NonMutatingMethods<InputSignal, T> => {
+export const getNonMutatingDataMethods = <T>(
+  baseSignal: Signal<T>,
+  nonNullableInitialValue?: NonNullable<T>,
+): NonMutatingMethods<T> => {
   const nonNullInitialValue =
     nonNullableInitialValue === undefined
-      ? baseSignal.nonReactiveValue
+      ? baseSignal.value
       : nonNullableInitialValue;
 
   // ARRAY CHECK MUST BE BEFORE OBJECT CHECK
   if (Array.isArray(nonNullInitialValue)) {
-    return getArrayNonMutatingMethods<InputSignal, Extract<T, any[]>>(
+    return getArrayNonMutatingMethods<Extract<T, any[]>>(
       baseSignal as any,
-    ) as NonMutatingMethods<InputSignal, T>;
+    ) as NonMutatingMethods<T>;
   }
 
   if (isPlainObject(nonNullInitialValue)) {
-    return getObjectNonMutatingMethods<
-      InputSignal,
-      Extract<T, Record<string, any>>
-    >(
+    return getObjectNonMutatingMethods<Extract<T, Record<string, any>>>(
       baseSignal as any,
-    ) as NonMutatingMethods<InputSignal, T>;
+    ) as NonMutatingMethods<T>;
   }
 
   if (typeof nonNullInitialValue === "string") {
-    return getStringSignalNonMutatingMethods<InputSignal>(
+    return getStringSignalNonMutatingMethods(
       baseSignal as any,
-    ) as unknown as NonMutatingMethods<InputSignal, T>;
+    ) as unknown as NonMutatingMethods<T>;
   }
 
   if (typeof nonNullInitialValue === "number") {
-    return getNumberSignalMethods<InputSignal>(
-      baseSignal as any,
-    ) as NonMutatingMethods<InputSignal, T>;
+    return getNumberSignalMethods(baseSignal as any) as NonMutatingMethods<T>;
   }
 
-  return {} as NonMutatingMethods<InputSignal, T>;
+  return {} as NonMutatingMethods<T>;
 };
 
 /**
@@ -122,54 +110,45 @@ export const getNonMutatingDataMethods = <
  * @see {@link MutatingAndNonMutatingMethods} - The conditional return type
  * @see {@link getNonMutatingDataMethods} - For projection-only method selection
  */
-export const getMutatingAndNonMutatingDataMethods = <
-  InputSignal extends InputSignalType,
-  T,
->(
-  baseSignal: BaseSignal<T>,
-  nonNullableInitialValue?: NonNullable<T extends Record<string, any> ? {} : T>,
-): MutatingAndNonMutatingMethods<InputSignal, T> => {
+export const getMutatingAndNonMutatingDataMethods = <T>(
+  baseSignal: Signal<T>,
+  nonNullableInitialValue?: NonNullable<T>,
+): MutatingAndNonMutatingMethods<T> => {
   const nonNullInitialValue =
     nonNullableInitialValue === undefined
-      ? baseSignal.nonReactiveValue
+      ? baseSignal.value
       : nonNullableInitialValue;
 
   // ARRAY CHECK MUST BE BEFORE OBJECT CHECK
   if (Array.isArray(nonNullInitialValue)) {
-    return getArrayMutatingAndNonMutatingMethods<
-      InputSignal,
-      Extract<T, any[]>
-    >(
+    return getArrayMutatingAndNonMutatingMethods<Extract<T, any[]>>(
       baseSignal as any,
-    ) as MutatingAndNonMutatingMethods<InputSignal, T>;
+    ) as MutatingAndNonMutatingMethods<T>;
   }
 
   if (isPlainObject(nonNullInitialValue)) {
     return getObjectMutatingAndNonMutatingMethods<
-      InputSignal,
       Extract<T, Record<string, any>>
-    >(
-      baseSignal as any,
-    ) as MutatingAndNonMutatingMethods<InputSignal, T>;
+    >(baseSignal as any) as MutatingAndNonMutatingMethods<T>;
   }
 
   if (typeof nonNullInitialValue === "string") {
-    return getStringSignalMethods<InputSignal>(
+    return getStringSignalMethods(
       baseSignal as any,
-    ) as MutatingAndNonMutatingMethods<InputSignal, T>;
+    ) as MutatingAndNonMutatingMethods<T>;
   }
 
   if (typeof nonNullInitialValue === "number") {
-    return getNumberSignalMethods<InputSignal>(
+    return getNumberSignalMethods(
       baseSignal as any,
-    ) as MutatingAndNonMutatingMethods<InputSignal, T>;
+    ) as MutatingAndNonMutatingMethods<T>;
   }
 
   if (typeof nonNullInitialValue === "boolean") {
     return getBooleanSignalMethods(
       baseSignal as any,
-    ) as MutatingAndNonMutatingMethods<InputSignal, T>;
+    ) as MutatingAndNonMutatingMethods<T>;
   }
 
-  return {} as MutatingAndNonMutatingMethods<InputSignal, T>;
+  return {} as MutatingAndNonMutatingMethods<T>;
 };

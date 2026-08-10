@@ -1,27 +1,10 @@
-import { valueIsLiveSignal } from "../../utils";
+import { DerivedSignal, Signal, BaseSourceSignal } from "../_types";
+import { derive } from "../derived-signal";
 import {
-  type BaseSignal,
-  deadSignal,
-  derive,
-} from "../signals";
-import {
-  DeriverReturnType,
-  InputSignalType,
   ObjectNonMutatingMethods,
   ObjectMutatingAndNonMutatingMethods,
   ObjectMutatingMethods,
 } from "./types";
-
-const getObjectMethodDeriver = <InputSignal extends InputSignalType>(
-  baseObjectSignal: BaseSignal<any>,
-) => {
-  const inputIsLiveSignal = valueIsLiveSignal(baseObjectSignal as any);
-
-  return <T>(deriver: () => T): DeriverReturnType<InputSignal, T> =>
-    (inputIsLiveSignal
-      ? derive(deriver)
-      : deadSignal(deriver())) as DeriverReturnType<InputSignal, T>;
-};
 
 /**
  * Creates mutating methods for a plain-object source signal.
@@ -49,7 +32,7 @@ const getObjectMethodDeriver = <InputSignal extends InputSignalType>(
  * @see {@link ObjectMutatingMethods} - The returned method contract
  */
 export const getObjectMutatingMethods = <T extends Record<string, any>>(
-  baseObjectSignal: BaseSignal<T>,
+  baseObjectSignal: BaseSourceSignal<T>,
 ): ObjectMutatingMethods<T> => ({
   set: (partiallyNewObjectValue: Partial<T>) =>
     baseObjectSignal.mutateWith((oldValue: T) => ({
@@ -86,27 +69,20 @@ export const getObjectMutatingMethods = <T extends Record<string, any>>(
  * @see {@link ObjectNonMutatingMethods} - The returned method contract
  * @see {@link getObjectMutatingMethods} - For shallow source-signal updates
  */
-export const getObjectNonMutatingMethods = <
-  InputSignal extends InputSignalType,
-  T extends Record<string, any>,
->(
-  baseObjectSignal: BaseSignal<T>,
-): ObjectNonMutatingMethods<InputSignal, T> => {
-  const deriveFromBase = getObjectMethodDeriver<InputSignal>(baseObjectSignal);
-
+export const getObjectNonMutatingMethods = <T extends Record<string, any>>(
+  baseObjectSignal: Signal<T>,
+): ObjectNonMutatingMethods<T> => {
   return {
-    keys: () => deriveFromBase(() => Object.keys(baseObjectSignal.value)),
+    keys: () => derive(() => Object.keys(baseObjectSignal.value)),
     get: <K extends keyof T>(key: K) =>
-      deriveFromBase(() => baseObjectSignal.value[key]),
+      derive(() => baseObjectSignal.value[key]),
     props: () => {
       const signalledPropsObj = {} as {
-        [key in keyof T]: DeriverReturnType<InputSignal, T[key]>;
+        [key in keyof T]: DerivedSignal<T[key]>;
       };
 
       (Object.keys(baseObjectSignal.value) as (keyof T)[]).forEach((key) => {
-        signalledPropsObj[key] = deriveFromBase(
-          () => baseObjectSignal.value[key],
-        );
+        signalledPropsObj[key] = derive(() => baseObjectSignal.value[key]);
       });
 
       return signalledPropsObj;
@@ -146,11 +122,12 @@ export const getObjectNonMutatingMethods = <
  * @see {@link ObjectMutatingAndNonMutatingMethods} - The returned method contract
  */
 export const getObjectMutatingAndNonMutatingMethods = <
-  InputSignal extends InputSignalType,
   T extends Record<string, any>,
 >(
-  baseObjectSignal: BaseSignal<T>,
-): ObjectMutatingAndNonMutatingMethods<InputSignal, T> => ({
-  mutate: { ...getObjectMutatingMethods(baseObjectSignal) },
-  ...getObjectNonMutatingMethods<InputSignal, T>(baseObjectSignal),
+  baseObjectSignal: Signal<T>,
+): ObjectMutatingAndNonMutatingMethods<T> => ({
+  mutate: {
+    ...getObjectMutatingMethods(baseObjectSignal as BaseSourceSignal<T>),
+  },
+  ...getObjectNonMutatingMethods<T>(baseObjectSignal),
 });

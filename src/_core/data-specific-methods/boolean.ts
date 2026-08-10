@@ -1,4 +1,4 @@
-import { type BaseSignal } from "../signals";
+import { BaseSourceSignal, type Signal } from "../_types";
 import {
   BooleanMutatingMethods,
   BooleanMutatingAndNonMutatingMethods,
@@ -10,7 +10,7 @@ import {
  * Returns the boolean mutation surface used to flip a mutable base signal
  * without exposing its lower-level `mutateWith()` implementation.
  *
- * @param baseSignal - The mutable base signal whose boolean value is updated
+ * @param Signal - The mutable base signal whose boolean value is updated
  * @returns Mutating methods for boolean signals
  *
  * @remarks
@@ -30,9 +30,9 @@ import {
  * @see {@link getBooleanSignalMethods} - For the source-signal method bundle
  */
 export const getBooleanMutatingMethods = (
-  baseSignal: BaseSignal<boolean>,
+  Signal: BaseSourceSignal<boolean>,
 ): BooleanMutatingMethods => ({
-  toggle: () => baseSignal.mutateWith((oldValue) => !oldValue),
+  toggle: () => Signal.mutateWith((oldValue) => !oldValue),
 });
 
 /**
@@ -41,7 +41,7 @@ export const getBooleanMutatingMethods = (
  * Wraps the boolean mutators in the `.mutate` namespace attached to a source
  * signal.
  *
- * @param baseSignal - The base boolean signal to access values from
+ * @param Signal - The base boolean signal to access values from
  * @returns Combined methods for boolean source signals
  *
  * @remarks
@@ -61,7 +61,7 @@ export const getBooleanMutatingMethods = (
  * @see {@link getBooleanMutatingMethods} - For the unwrapped mutator object
  */
 export const getBooleanSignalMethods = (
-  baseSignal: BaseSignal<boolean>,
+  Signal: Signal<boolean>,
 ): BooleanMutatingAndNonMutatingMethods => ({
-  mutate: { ...getBooleanMutatingMethods(baseSignal) },
+  mutate: { ...getBooleanMutatingMethods(Signal as BaseSourceSignal<boolean>) },
 });
