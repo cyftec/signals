@@ -84,7 +84,6 @@ describe("source-signal widening", () => {
     expect(wide.value).toBe("done");
     expect(wide.prevValue).toBeUndefined();
     expect(seen).toEqual(["ready", 1, undefined, "done"]);
-    watcher.dispose();
   });
 
   it("accepts a widened object replacement and shallow optional-property updates", () => {
@@ -237,7 +236,6 @@ describe("widened source arrays", () => {
       expect(wide.value).toEqual(testCase.expected);
       expect(projectedLabels.value).toEqual(labels(testCase.expected));
       expect(effectRuns).toBe(2);
-      watcher.dispose();
     });
   }
 
@@ -300,7 +298,8 @@ describe("widened source arrays", () => {
     },
     {
       name: "findLastIndex receives the widened element view",
-      create: (items) => items.findLastIndex((item) => item.isSelected === false),
+      create: (items) =>
+        items.findLastIndex((item) => item.isSelected === false),
       initial: 1,
       updated: 2,
     },
@@ -419,10 +418,7 @@ describe("widened source arrays", () => {
 
   it("partition reacts to a signal thisArg through a widened view", () => {
     const { wide } = widenedArraySource();
-    const predicate = function (
-      this: { selected: boolean },
-      item: WideObject,
-    ) {
+    const predicate = function (this: { selected: boolean }, item: WideObject) {
       return item.isSelected === this.selected;
     };
     const context = signal({ selected: true });
@@ -509,7 +505,9 @@ describe("widened derived and dead data-specific signals", () => {
       "first",
       "second",
     ]);
-    expect(wideArray.find((item) => item.href !== undefined).value).toBeUndefined();
+    expect(
+      wideArray.find((item) => item.href !== undefined).value,
+    ).toBeUndefined();
     expect(wideArray.lastItem().value).toEqual({
       title: "second",
       isSelected: true,
@@ -584,7 +582,10 @@ describe("widened derived and dead data-specific signals", () => {
 
 describe("widened connectors", () => {
   it("receive accepts narrow source, derived, dead, and plain transmitters independently", () => {
-    const narrowSource = signal<NarrowObject>({ title: "source", isSelected: true });
+    const narrowSource = signal<NarrowObject>({
+      title: "source",
+      isSelected: true,
+    });
     const narrowDerived = derive(() => ({
       title: `${narrowSource.value.title}-derived`,
       isSelected: narrowSource.value.isSelected,
@@ -595,23 +596,30 @@ describe("widened connectors", () => {
     });
     const receiver = signal<WideObject>({ title: "receiver" });
 
-    const sourceConnection = receive(receiver, narrowSource);
+    receive(receiver, narrowSource);
+
     expect(receiver.value).toEqual({ title: "source", isSelected: true });
     narrowSource.value = { title: "source-update", isSelected: false };
-    expect(receiver.value).toEqual({ title: "source-update", isSelected: false });
-    sourceConnection[0].dispose();
+    expect(receiver.value).toEqual({
+      title: "source-update",
+      isSelected: false,
+    });
 
-    const derivedConnection = receive(receiver, narrowDerived);
+    receive(receiver, narrowDerived);
+
     expect(receiver.value).toEqual({
       title: "source-update-derived",
       isSelected: false,
     });
     narrowSource.value = { title: "derived-update", isSelected: true };
-    expect(receiver.value).toEqual({
+    expect(narrowDerived.value).toEqual({
       title: "derived-update-derived",
       isSelected: true,
     });
-    derivedConnection[0].dispose();
+    expect(receiver.value).toEqual({
+      title: "derived-update",
+      isSelected: true,
+    });
 
     receive(receiver, narrowDead);
     expect(receiver.value).toEqual({ title: "dead", isSelected: false });
@@ -633,14 +641,22 @@ describe("widened connectors", () => {
 
     expect(receiver.value).toEqual({ title: "second", isSelected: false });
     first.value = { title: "first-update", isSelected: false };
-    expect(receiver.value).toEqual({ title: "first-update", isSelected: false });
+    expect(receiver.value).toEqual({
+      title: "first-update",
+      isSelected: false,
+    });
     second.value = { title: "second-update", isSelected: true };
-    expect(receiver.value).toEqual({ title: "second-update", isSelected: true });
-    connections.forEach((connection) => connection.dispose());
+    expect(receiver.value).toEqual({
+      title: "second-update",
+      isSelected: true,
+    });
   });
 
   it("transmit broadcasts narrow source, derived, dead, and plain values to wide receivers", () => {
-    const narrowSource = signal<NarrowObject>({ title: "source", isSelected: true });
+    const narrowSource = signal<NarrowObject>({
+      title: "source",
+      isSelected: true,
+    });
     const derived = derive(() => ({
       title: `${narrowSource.value.title}-derived`,
       isSelected: narrowSource.value.isSelected,
@@ -648,27 +664,29 @@ describe("widened connectors", () => {
     const left = signal<WideObject>({ title: "left" });
     const right = signal<WideObject>({ title: "right" });
 
-    const sourceConnection = transmit(narrowSource, left, right);
+    transmit(narrowSource, left, right);
     expect(left.value).toEqual({ title: "source", isSelected: true });
     expect(right.value).toEqual({ title: "source", isSelected: true });
     narrowSource.value = { title: "source-update", isSelected: false };
     expect(left.value).toEqual({ title: "source-update", isSelected: false });
     expect(right.value).toEqual({ title: "source-update", isSelected: false });
-    sourceConnection.dispose();
 
-    const derivedConnection = transmit(derived, left, right);
+    transmit(derived, left, right);
     narrowSource.value = { title: "derived-update", isSelected: true };
     expect(left.value).toEqual({
-      title: "derived-update-derived",
+      title: "derived-update",
       isSelected: true,
     });
     expect(right.value).toEqual({
-      title: "derived-update-derived",
+      title: "derived-update",
       isSelected: true,
     });
-    derivedConnection.dispose();
 
-    transmit(deadSignal<NarrowObject>({ title: "dead", isSelected: false }), left, right);
+    transmit(
+      deadSignal<NarrowObject>({ title: "dead", isSelected: false }),
+      left,
+      right,
+    );
     expect(left.value).toEqual({ title: "dead", isSelected: false });
     expect(right.value).toEqual({ title: "dead", isSelected: false });
     transmit({ title: "plain", isSelected: true }, left, right);
@@ -684,7 +702,5 @@ describe("widened connectors", () => {
 
     wide.value = { title: "wide-only" };
     expect(receiver.value).toEqual({ title: "wide-only" });
-
-    connection.dispose();
   });
 });

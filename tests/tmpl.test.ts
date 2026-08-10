@@ -114,15 +114,6 @@ describe("tmpl", () => {
     expect(greeting.type).toBe("derived-signal");
   });
 
-  it("should have dispose method", () => {
-    const name = signal("World");
-    const greeting = tmpl`Hello ${name}`;
-
-    greeting.dispose();
-    name.value = "Alice";
-    expect(greeting.value).toBe("Hello World"); // Should not update
-  });
-
   it("should handle complex template literals", () => {
     const firstName = signal("John");
     const lastName = signal("Doe");

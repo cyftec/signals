@@ -32,7 +32,6 @@ export type Effect = {
   registerStimulusSignal(signal: BaseSignal<any>): void;
   registerDependentSignal(signal: BaseSignal<any>): void;
   removeAllSignals(): void;
-  dispose(): void;
 };
 
 /**
@@ -101,12 +100,6 @@ export const effect = (signalsCatcherFn: () => void): Effect => {
       });
       _stimulusSignals.clear();
       _dependentSignals.clear();
-    },
-
-    dispose(): void {
-      if (_isDisposed) throw `This receiver is already destroyed.`;
-      this.removeAllSignals();
-      _isDisposed = true;
     },
   };
 

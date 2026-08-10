@@ -16,19 +16,6 @@ describe("receive", () => {
     expect(receiver.value).toBe("There");
   });
 
-  it("should return array of effects for disposal", () => {
-    const transmitter1 = signal("Hello");
-    const transmitter2 = signal("World");
-    const receiver = signal("");
-
-    const effects = receive(receiver, transmitter1, transmitter2);
-
-    expect(Array.isArray(effects)).toBe(true);
-    expect(effects.length).toBe(2);
-    expect(effects[0].dispose).toBeInstanceOf(Function);
-    expect(effects[1].dispose).toBeInstanceOf(Function);
-  });
-
   // TODO: should throw error if no transmitters are provided
   it("should handle empty transmitters array", () => {
     const receiver = signal("");
@@ -77,26 +64,6 @@ describe("receive", () => {
 
     base2.value = 5;
     expect(receiver.value).toBe(15);
-  });
-
-  it("should dispose connections when effects are disposed", () => {
-    const transmitter1 = signal("Hello");
-    const transmitter2 = signal("World");
-    const receiver = signal("");
-
-    const effects = receive(receiver, transmitter1, transmitter2);
-    expect(receiver.value).toBe("World"); // Last transmitter value
-
-    // Dispose all effects
-    effects.forEach((eff) => eff.dispose());
-
-    // Effects run once more after disposal (lazy removal)
-    transmitter1.value = "Hi";
-    expect(receiver.value).toBe("World"); // Last transmitter value
-
-    // Now effects should be removed
-    transmitter2.value = "There";
-    expect(receiver.value).toBe("World"); // No longer updates
   });
 
   it("should handle number signals", () => {
@@ -188,16 +155,6 @@ describe("transmit", () => {
     expect(receiver3.value).toBe("Hi");
   });
 
-  it("should return effect for disposal", () => {
-    const transmitter = signal("Hello");
-    const receiver1 = signal("");
-    const receiver2 = signal("");
-
-    const effect = transmit(transmitter, receiver1, receiver2);
-
-    expect(effect.dispose).toBeInstanceOf(Function);
-  });
-
   // TODO: should throw error if no receivers are provided
   it("should handle empty receivers array", () => {
     const transmitter = signal("Hello");
@@ -247,25 +204,6 @@ describe("transmit", () => {
     base.value = 10;
     expect(receiver1.value).toBe(20);
     expect(receiver2.value).toBe(20);
-  });
-
-  it("should dispose connection when effect is disposed", () => {
-    const transmitter = signal("Hello");
-    const receiver1 = signal("");
-    const receiver2 = signal("");
-
-    const effect = transmit(transmitter, receiver1, receiver2);
-
-    // Effect runs once to set initial values
-    expect(receiver1.value).toBe("Hello");
-    expect(receiver2.value).toBe("Hello");
-
-    effect.dispose();
-
-    // After disposal, effect doesn't run, receivers keep their values
-    transmitter.value = "Hi";
-    expect(receiver1.value).toBe("Hello"); // Still "Hello", no updates
-    expect(receiver2.value).toBe("Hello"); // Still "Hello", no updates
   });
 
   it("should handle number signals", () => {

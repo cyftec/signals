@@ -152,16 +152,6 @@ describe("compute", () => {
     expect(sum.type).toBe("derived-signal");
   });
 
-  it("should have dispose method", () => {
-    const a = signal(5);
-    const sum = compute((x: number, y: number) => x + y, a, 3);
-    expect(sum.value).toBe(8); // Initial value
-
-    sum.dispose();
-    a.value = 10;
-    expect(sum.value).toBe(8); // Should not update
-  });
-
   it("should handle derived signal arguments", () => {
     const a = signal(5);
     const doubled = derive(() => a.value * 2);

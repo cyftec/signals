@@ -31,7 +31,6 @@ const assertArrayMutation = (
   expect(previousSnapshot).toEqual(initial);
   expect(externalInput).toEqual(initial);
   expect(effectRuns).toBe(2);
-  watcher.dispose();
 };
 
 const assertStringMutation = (
@@ -52,7 +51,6 @@ const assertStringMutation = (
   expect(text.value).toBe(expected);
   expect(text.prevValue).toBe(initial);
   expect(effectRuns).toBe(2);
-  watcher.dispose();
 };
 
 describe("array data methods", () => {
@@ -373,9 +371,7 @@ describe("array data methods", () => {
     const [derivedPassing, derivedFailing] = derived.partition(
       (item) => item % 2 === 0,
     );
-    const [deadPassing, deadFailing] = dead.partition(
-      (item) => item % 2 === 0,
-    );
+    const [deadPassing, deadFailing] = dead.partition((item) => item % 2 === 0);
 
     expect(sourceItem.type).toBe("derived-signal");
     expect(derivedItem.type).toBe("derived-signal");
@@ -924,7 +920,6 @@ describe("object data methods", () => {
       details: { active: true },
     });
     expect(effectRuns).toBe(2);
-    watcher.dispose();
   });
 
   it("get returns a reactive property signal", () => {
@@ -1169,7 +1164,6 @@ describe("boolean data methods", () => {
     expect(boolean.value).toBe(true);
     expect(boolean.prevValue).toBe(false);
     expect(effectRuns).toBe(3);
-    watcher.dispose();
   });
 });
 
