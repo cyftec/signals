@@ -17,6 +17,7 @@ import { value } from "../utils";
  * - Initialization is synchronous; the last argument supplies the final initial value.
  * - Plain transmitters perform only their immediate copy.
  * - Source and derived transmitters remain connected through their created effect receivers.
+ * - Each returned receiver can be disposed independently to stop its connection.
  * - Passing no transmitters returns an empty array.
  *
  * @example
@@ -28,6 +29,7 @@ import { value } from "../utils";
  * console.log(receiver.value); // "second"
  * first.value = "updated";
  * console.log(connections.length); // 2
+ * connections[0].dispose();
  * ```
  *
  * @see {@link transmit} - Connects one transmitter to several receivers.
@@ -60,6 +62,7 @@ export const receive = <T>(
  * - Receiver initialization is synchronous during this call.
  * - A plain transmitter performs only the immediate broadcast.
  * - Receivers remain independently mutable between broadcasts.
+ * - Disposing the returned receiver stops future broadcasts.
  * - Passing no receivers creates an effect with no signal dependencies.
  *
  * @example
@@ -71,6 +74,7 @@ export const receive = <T>(
  * source.value = 2;
  * console.log(left.value, right.value); // 2, 2
  * console.log(connection.id);
+ * connection.dispose();
  * ```
  *
  * @see {@link receive} - Connects several transmitters to one receiver.

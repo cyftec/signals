@@ -194,15 +194,94 @@ describe("effect", () => {
 
     expect(() =>
       effect(() => {
+        void count.value;
         throw new Error("initial failure");
       }),
     ).toThrow("initial failure");
 
-    void count.value;
-
     expect(() => {
       count.value = 1;
     }).not.toThrow();
+  });
+
+  it("stops automatic reruns for every dependency after disposal", () => {
+    const left = signal(1);
+    const right = signal(2);
+    const seen: number[] = [];
+    const receiver = effect(() => {
+      seen.push(left.value + right.value);
+    });
+
+    receiver.dispose();
+    left.value = 3;
+    right.value = 4;
+
+    expect(seen).toEqual([3]);
+  });
+
+  it("keeps other receivers connected when one receiver is disposed", () => {
+    const count = signal(0);
+    const firstSeen: number[] = [];
+    const secondSeen: number[] = [];
+    const first = effect(() => {
+      firstSeen.push(count.value);
+    });
+    effect(() => {
+      secondSeen.push(count.value);
+    });
+
+    first.dispose();
+    count.value = 1;
+
+    expect(firstSeen).toEqual([0]);
+    expect(secondSeen).toEqual([0, 1]);
+  });
+
+  it("makes disposal idempotent", () => {
+    const count = signal(0);
+    let runs = 0;
+    const receiver = effect(() => {
+      runs++;
+      void count.value;
+    });
+
+    receiver.dispose();
+    receiver.dispose();
+    count.value = 1;
+
+    expect(runs).toBe(1);
+  });
+
+  it("skips a receiver disposed by an earlier receiver during the same write", () => {
+    const count = signal(0);
+    const seen: string[] = [];
+    let second: ReturnType<typeof effect>;
+    effect(() => {
+      if (count.value === 1) second.dispose();
+      seen.push("first");
+    });
+    second = effect(() => {
+      void count.value;
+      seen.push("second");
+    });
+
+    count.value = 1;
+
+    expect(seen).toEqual(["first", "second", "first"]);
+  });
+
+  it("still permits manual runs after disposal without reconnecting dependencies", () => {
+    const count = signal(0);
+    const seen: number[] = [];
+    const receiver = effect(() => {
+      seen.push(count.value);
+    });
+
+    receiver.dispose();
+    receiver.run();
+    count.value = 1;
+
+    expect(seen).toEqual([0, 0]);
   });
 });
 

@@ -37,6 +37,21 @@ describe("receive", () => {
     expect(effects.length).toBe(1);
   });
 
+  it("allows an individual received connection to be disposed", () => {
+    const first = signal("first");
+    const second = signal("second");
+    const receiver = signal("");
+    const [firstConnection] = receive(receiver, first, second);
+
+    firstConnection.dispose();
+    first.value = "ignored";
+    expect(receiver.value).toBe("second");
+
+    second.value = "updated";
+
+    expect(receiver.value).toBe("updated");
+  });
+
   it("should allow receiver to be updated independently", () => {
     const transmitter1 = signal("Hello");
     const transmitter2 = signal("World");
@@ -172,6 +187,19 @@ describe("transmit", () => {
 
     transmitter.value = "Hi";
     expect(receiver.value).toBe("Hi");
+  });
+
+  it("stops a broadcast connection after disposal", () => {
+    const transmitter = signal("Hello");
+    const receiver1 = signal("");
+    const receiver2 = signal("");
+    const connection = transmit(transmitter, receiver1, receiver2);
+
+    connection.dispose();
+    transmitter.value = "Hi";
+
+    expect(receiver1.value).toBe("Hello");
+    expect(receiver2.value).toBe("Hello");
   });
 
   it("should allow receivers to be updated independently", () => {

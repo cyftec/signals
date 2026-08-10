@@ -1,5 +1,5 @@
 import { newVal } from "@cyftec/immut";
-import { Connector } from "./connector";
+import { ConnectionsManager } from "./signals-reception-manager";
 import { IdGenerator } from "./id-generator";
 import { BaseSourceSignal, SignalType } from "./_types";
 import {
@@ -100,7 +100,7 @@ export const signal = <T>(
     },
 
     get value(): T {
-      Connector.connectWithNewReceiver(
+      ConnectionsManager.connectWithNewReceiver(
         sourceSignal as BaseSourceSignal<unknown>,
       );
       return newVal(_value);
@@ -114,7 +114,9 @@ export const signal = <T>(
 
       _prevValue = _value;
       _value = newSignalValue;
-      Connector.runReceivers(sourceSignal as BaseSourceSignal<unknown>);
+      ConnectionsManager.runReceivers(
+        sourceSignal as BaseSourceSignal<unknown>,
+      );
     },
 
     mutateWith(mutatedSignalEvaluator: (oldSignalValue: T) => T) {

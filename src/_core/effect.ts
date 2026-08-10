@@ -1,4 +1,4 @@
-import { Connector } from "./connector";
+import { ConnectionsManager } from "./signals-reception-manager";
 import { IdGenerator } from "./id-generator";
 import { Receiver } from "./_types";
 
@@ -9,12 +9,13 @@ import { Receiver } from "./_types";
  * to the returned receiver and rerun the same callback when they are assigned.
  *
  * @param signalsCatcher - The callback whose initial source-signal reads are tracked.
- * @returns The receiver that the connector uses for future synchronous runs.
+ * @returns The receiver that the reception manager uses for future synchronous runs.
  *
  * @remarks
  * - The callback runs once before effect() returns.
  * - Only source-signal reads during that initial run register dependencies.
- * - The returned receiver has no disposal method.
+ * - dispose() removes the receiver from every captured source-signal dependency.
+ * - dispose() is idempotent and run() remains available for manual, non-collecting runs.
  *
  * @example
  * ```typescript
@@ -22,6 +23,7 @@ import { Receiver } from "./_types";
  * const receiver = effect(() => console.log(count.value));
  * count.value = 1;
  * receiver.run();
+ * receiver.dispose();
  * ```
  *
  * @see {@link Receiver} - The returned effect receiver.
@@ -38,9 +40,13 @@ export const effect = (signalsCatcher: () => void) => {
     run(): void {
       signalsCatcher();
     },
+
+    dispose(): void {
+      ConnectionsManager.removeReceiver(receiver);
+    },
   } as const;
 
-  Connector.installReceiver(receiver);
+  ConnectionsManager.addReceiver(receiver);
 
   return receiver;
 };

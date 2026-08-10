@@ -12,22 +12,41 @@ import { SourceSignal, DerivedSignal } from "..";
  *
  * @example
  * ```typescript
- * declare const connector: SignalConnector;
- * connector.runReceivers(signal(1));
+ * declare const receptionManager: SignalsReceptionManager;
+ * receptionManager.runReceivers(signal(1));
  * ```
  *
  * @see {@link Receiver} - The callback registered for source-signal changes.
  * @see {@link effect} - The public API that installs a receiver.
  */
-export type SignalConnector = {
-  readonly installReceiver: (effect: {
-    readonly id: number;
-    readonly run: () => void;
-  }) => void;
+export type SignalsReceptionManager = {
+  readonly addReceiver: (receiver: Receiver) => void;
+  readonly removeReceiver: (receiver: Receiver) => void;
   readonly ignoreReceiver: <T>(callbackWithSignals: () => T) => T;
   readonly connectWithNewReceiver: (signal: BaseSourceSignal<unknown>) => void;
   readonly runReceivers: (signal: BaseSourceSignal<unknown>) => void;
 };
+
+/**
+ * Preserves the legacy reception-manager type name.
+ *
+ * SignalConnector is an exact alias of SignalsReceptionManager for existing
+ * consumers that imported the former public type.
+ *
+ * @remarks
+ * - This alias exists only for source compatibility.
+ * - New code should use SignalsReceptionManager.
+ *
+ * @example
+ * ```typescript
+ * declare const manager: SignalConnector;
+ * manager.runReceivers(signal(1));
+ * ```
+ *
+ * @see {@link SignalsReceptionManager} - The current reception-manager type name.
+ * @deprecated Use {@link SignalsReceptionManager} instead.
+ */
+export type SignalConnector = SignalsReceptionManager;
 
 /**
  * Represents a synchronous effect receiver.
@@ -36,21 +55,24 @@ export type SignalConnector = {
  * run() when a connected source signal is written.
  *
  * @remarks
- * - Receivers do not expose disposal or lifecycle controls.
- * - The connector uses id to deduplicate repeated reads of one source signal.
+ * - dispose() removes the receiver from all captured source-signal dependencies.
+ * - dispose() is idempotent; run() remains available for a manual non-collecting run.
+ * - The reception manager uses id to deduplicate repeated reads of one source signal.
  *
  * @example
  * ```typescript
  * declare const receiver: Receiver;
  * receiver.run();
+ * receiver.dispose();
  * ```
  *
- * @see {@link SignalConnector} - Stores and invokes receivers.
+ * @see {@link SignalsReceptionManager} - Stores and invokes receivers.
  * @see {@link effect} - Creates receivers from callbacks.
  */
 export type Receiver = {
   readonly id: number;
   readonly run: () => void;
+  readonly dispose: () => void;
 };
 
 /**

@@ -2,21 +2,21 @@
   "const": {
     "core": [
       {
-        "name": "Connector",
+        "name": "ConnectionsManager",
         "kind": "const",
-        "filePath": "src/_core/connector.ts",
+        "filePath": "src/_core/signals-reception-manager.ts",
         "isCallable": false,
         "isExported": true,
         "exportKind": "named",
         "category": "core",
-        "signature": "export const Connector = ((): SignalConnector => {\n  let _newReceiver: Receiver | null = null;\n  const _receivers = new Map<number, Receiver>();\n  const _connectorMap = new Map<BaseSourceSignal<unknown>, Set<number>>();\n\n  const signalConnector: SignalConnector = {\n    installReceiver(receiver: Receiver) {\n      _newReceiver = receiver;\n      try {\n        receiver.run();\n      } finally {\n        _newReceiver = null;\n      }\n      _receivers.set(receiver.id, receiver);\n    },\n\n    ignoreReceiver<T>(callbackWithSignals: () => T): T {\n      const preservedReceiver = _newReceiver;\n      _newReceiver = null;\n      try {\n        return callbackWithSignals();\n      } finally {\n        _newReceiver = preservedReceiver;\n      }\n    },\n\n    connectWithNewReceiver(signal: BaseSourceSignal<unknown>) {\n      if (_newReceiver) {\n        if (_connectorMap.has(signal)) {\n          _connectorMap.get(signal)!.add(_newReceiver!.id);\n        } else {\n          const newReceiverSet: Set<number> = new Set([_newReceiver!.id]);\n          _connectorMap.set(signal, newReceiverSet);\n        }\n      }\n    },\n\n    processSignal(signal: BaseSourceSignal<unknown>) {\n      const receiverIDs = _connectorMap.get(signal);\n      receiverIDs?.forEach((receiverID) => {\n        const receiver = _receivers.get(receiverID);\n        if (!receiver)\n          throw `WTF! No receiver found for the receiver ID - ${receiverID}?`;\n\n        receiver.run();\n      });\n    },\n  };\n\n  return signalConnector;\n})();",
+        "signature": "export const ConnectionsManager = ((): SignalsReceptionManager => {\n  let _newReceiver: Receiver | null = null;\n  const _receivers = new Map<number, Receiver>();\n  const _signalsReceiversMap = new Map<\n    BaseSourceSignal<unknown>,\n    Set<number>\n  >();\n\n  const signalsReceptionManager: SignalsReceptionManager = {\n    addReceiver(receiver: Receiver) {\n      _receivers.set(receiver.id, receiver);\n      _newReceiver = receiver;\n      try {\n        receiver.run();\n      } catch (error) {\n        signalsReceptionManager.removeReceiver(receiver);\n        throw error;\n      } finally {\n        _newReceiver = null;\n      }\n    },\n\n    removeReceiver(receiver: Receiver) {\n      _signalsReceiversMap.forEach((receiverIdsSet, signal) => {\n        receiverIdsSet.delete(receiver.id);\n        if (receiverIdsSet.size === 0) {\n          _signalsReceiversMap.delete(signal);\n        }\n      });\n      _receivers.delete(receiver.id);\n    },\n\n    ignoreReceiver<T>(callbackWithSignals: () => T): T {\n      const preservedReceiver = _newReceiver;\n      _newReceiver = null;\n      try {\n        return callbackWithSignals();\n      } finally {\n        _newReceiver = preservedReceiver;\n      }\n    },\n\n    connectWithNewReceiver(signal: BaseSourceSignal<unknown>) {\n      if (_newReceiver) {\n        if (_signalsReceiversMap.has(signal)) {\n          _signalsReceiversMap.get(signal)!.add(_newReceiver!.id);\n        } else {\n          const newReceiverSet: Set<number> = new Set([_newReceiver!.id]);\n          _signalsReceiversMap.set(signal, newReceiverSet);\n        }\n      }\n    },\n\n    runReceivers(signal: BaseSourceSignal<unknown>) {\n      const receiverIDs = _signalsReceiversMap.get(signal);\n      receiverIDs?.forEach((receiverID) => {\n        const receiver = _receivers.get(receiverID);\n        if (!receiver)\n          throw `WTF! No receiver found for the receiver ID - ${receiverID}?`;\n\n        receiver.run();\n      });\n    },\n  };\n\n  return signalsReceptionManager;\n})();",
         "parameters": [],
         "typeParameters": [],
         "tsdoc": {
           "title": "Coordinates initial effect dependency collection and synchronous source writes.",
           "summary": "The connector records source signals read while installing a receiver, then\ninvokes each recorded receiver when that source signal changes.",
           "remarks": [
-            "- Dependencies are captured only during installReceiver().\n- Repeated reads of one signal by a receiver register one receiver identifier.\n- Receivers run synchronously in insertion order for each source signal."
+            "- Dependencies are captured only during addReceiver().\n- Repeated reads of one signal by a receiver register one receiver identifier.\n- Receivers run synchronously in insertion order for each source signal."
           ],
           "examples": [
             "```typescript\nconst count = signal(0);\neffect(() => count.value);\ncount.value = 1;\n```"
@@ -24,13 +24,13 @@
           "params": [],
           "returns": [],
           "see": [
-            "{@link effect} - Installs receivers through this connector.",
+            "{@link effect} - Adds receivers through this manager.",
             "{@link BaseSourceSignal} - The signal shape that triggers receivers."
           ],
           "template": [],
           "deprecated": []
         },
-        "sourcePath": "src/_core/connector.ts"
+        "sourcePath": "src/_core/signals-reception-manager.ts"
       },
       {
         "name": "deadZone",
@@ -40,7 +40,7 @@
         "isExported": true,
         "exportKind": "named",
         "category": "core",
-        "signature": "export const deadZone = <T>(callbackWithSignals: () => T): T => {\n  return Connector.ignoreReceiver(callbackWithSignals);\n};",
+        "signature": "export const deadZone = <T>(callbackWithSignals: () => T): T => {\n  return ConnectionsManager.ignoreReceiver(callbackWithSignals);\n};",
         "parameters": [
           {
             "name": "callbackWithSignals",
@@ -151,7 +151,7 @@
         "isExported": true,
         "exportKind": "named",
         "category": "core",
-        "signature": "export const effect = (signalsCatcher: () => void) => {\n  const _id = IdGenerator.newID;\n\n  const receiver: Receiver = {\n    get id(): number {\n      return _id;\n    },\n\n    run(): void {\n      signalsCatcher();\n    },\n  } as const;\n\n  Connector.installReceiver(receiver);\n\n  return receiver;\n};",
+        "signature": "export const effect = (signalsCatcher: () => void) => {\n  const _id = IdGenerator.newID;\n\n  const receiver: Receiver = {\n    get id(): number {\n      return _id;\n    },\n\n    run(): void {\n      signalsCatcher();\n    },\n\n    dispose(): void {\n      ConnectionsManager.removeReceiver(receiver);\n    },\n  } as const;\n\n  ConnectionsManager.addReceiver(receiver);\n\n  return receiver;\n};",
         "parameters": [
           {
             "name": "signalsCatcher",
@@ -164,10 +164,10 @@
           "title": "Installs and immediately runs a synchronous effect callback.",
           "summary": "Source signals read during the initial callback run are permanently connected\nto the returned receiver and rerun the same callback when they are assigned.",
           "remarks": [
-            "- The callback runs once before effect() returns.\n- Only source-signal reads during that initial run register dependencies.\n- The returned receiver has no disposal method."
+            "- The callback runs once before effect() returns.\n- Only source-signal reads during that initial run register dependencies.\n- dispose() removes the receiver from every captured source-signal dependency.\n- dispose() is idempotent and run() remains available for manual, non-collecting runs."
           ],
           "examples": [
-            "```typescript\nconst count = signal(0);\nconst receiver = effect(() => console.log(count.value));\ncount.value = 1;\nreceiver.run();\n```"
+            "```typescript\nconst count = signal(0);\nconst receiver = effect(() => console.log(count.value));\ncount.value = 1;\nreceiver.run();\nreceiver.dispose();\n```"
           ],
           "params": [
             {
@@ -176,7 +176,7 @@
             }
           ],
           "returns": [
-            "The receiver that the connector uses for future synchronous runs."
+            "The receiver that the reception manager uses for future synchronous runs."
           ],
           "see": [
             "{@link Receiver} - The returned effect receiver.",
@@ -1246,7 +1246,7 @@
         "isExported": true,
         "exportKind": "named",
         "category": "core",
-        "signature": "export const signal = <T>(\n  initialValue: T,\n  nonNullInitialValue?: NonNullable<T>,\n): SourceSignal<T> => {\n  const _id = IdGenerator.newID;\n  let _prevValue: T | undefined = undefined;\n  let _value: T = newVal(initialValue);\n\n  const sourceSignal: BaseSourceSignal<T> = {\n    get type(): SignalType {\n      return \"source-signal\";\n    },\n\n    get id(): number {\n      return _id;\n    },\n\n    get prevValue(): T | undefined {\n      return _prevValue;\n    },\n\n    get nonReactiveValue() {\n      return _value;\n    },\n\n    get value(): T {\n      Connector.connectWithNewReceiver(\n        sourceSignal as BaseSourceSignal<unknown>,\n      );\n      return newVal(_value);\n    },\n\n    set value(newSignalValue: T) {\n      if (newSignalValue === _value) {\n        console.warn(`Unncessary assignment to sourceSignal with ID - ${_id}`);\n        return;\n      }\n\n      _prevValue = _value;\n      _value = newSignalValue;\n      Connector.processSignal(sourceSignal as BaseSourceSignal<unknown>);\n    },\n\n    mutateWith(mutatedSignalEvaluator: (oldSignalValue: T) => T) {\n      const updatedValue = mutatedSignalEvaluator(_value);\n      this.value = updatedValue;\n    },\n  };\n\n  Object.assign(sourceSignal, getGenericMethods<T>(sourceSignal as any));\n  Object.assign(\n    sourceSignal,\n    getMutatingAndNonMutatingDataMethods<T>(\n      sourceSignal as any,\n      nonNullInitialValue,\n    ),\n  );\n\n  return sourceSignal as SourceSignal<T>;\n};",
+        "signature": "export const signal = <T>(\n  initialValue: T,\n  nonNullInitialValue?: NonNullable<T>,\n): SourceSignal<T> => {\n  const _id = IdGenerator.newID;\n  let _prevValue: T | undefined = undefined;\n  let _value: T = newVal(initialValue);\n\n  const sourceSignal: BaseSourceSignal<T> = {\n    get type(): SignalType {\n      return \"source-signal\";\n    },\n\n    get id(): number {\n      return _id;\n    },\n\n    get prevValue(): T | undefined {\n      return _prevValue;\n    },\n\n    get nonReactiveValue() {\n      return _value;\n    },\n\n    get value(): T {\n      ConnectionsManager.connectWithNewReceiver(\n        sourceSignal as BaseSourceSignal<unknown>,\n      );\n      return newVal(_value);\n    },\n\n    set value(newSignalValue: T) {\n      if (newSignalValue === _value) {\n        console.warn(`Unncessary assignment to sourceSignal with ID - ${_id}`);\n        return;\n      }\n\n      _prevValue = _value;\n      _value = newSignalValue;\n      ConnectionsManager.runReceivers(\n        sourceSignal as BaseSourceSignal<unknown>,\n      );\n    },\n\n    mutateWith(mutatedSignalEvaluator: (oldSignalValue: T) => T) {\n      const updatedValue = mutatedSignalEvaluator(_value);\n      this.value = updatedValue;\n    },\n  };\n\n  Object.assign(sourceSignal, getGenericMethods<T>(sourceSignal as any));\n  Object.assign(\n    sourceSignal,\n    getMutatingAndNonMutatingDataMethods<T>(\n      sourceSignal as any,\n      nonNullInitialValue,\n    ),\n  );\n\n  return sourceSignal as SourceSignal<T>;\n};",
         "parameters": [
           {
             "name": "initialValue",
@@ -1521,10 +1521,10 @@
           "title": "Connects several signal-capable transmitters to one mutable receiver.",
           "summary": "One effect is created per transmitter. Each effect immediately copies its\ntransmitter into the receiver, then repeats for future changes when that\ntransmitter is live.",
           "remarks": [
-            "- Initialization is synchronous; the last argument supplies the final initial value.\n- Plain transmitters perform only their immediate copy.\n- Source and derived transmitters remain connected through their created effect receivers.\n- Passing no transmitters returns an empty array."
+            "- Initialization is synchronous; the last argument supplies the final initial value.\n- Plain transmitters perform only their immediate copy.\n- Source and derived transmitters remain connected through their created effect receivers.\n- Each returned receiver can be disposed independently to stop its connection.\n- Passing no transmitters returns an empty array."
           ],
           "examples": [
-            "```typescript\nconst first = signal(\"first\");\nconst second = signal(\"second\");\nconst receiver = signal(\"\");\nconst connections = receive(receiver, first, second);\nconsole.log(receiver.value); // \"second\"\nfirst.value = \"updated\";\nconsole.log(connections.length); // 2\n```"
+            "```typescript\nconst first = signal(\"first\");\nconst second = signal(\"second\");\nconst receiver = signal(\"\");\nconst connections = receive(receiver, first, second);\nconsole.log(receiver.value); // \"second\"\nfirst.value = \"updated\";\nconsole.log(connections.length); // 2\nconnections[0].dispose();\n```"
           ],
           "params": [
             {
@@ -1637,10 +1637,10 @@
           "title": "Connects one signal-capable transmitter to several mutable receivers.",
           "summary": "A single effect immediately copies the transmitter into each receiver in\nargument order and repeats that ordered broadcast when a live transmitter changes.",
           "remarks": [
-            "- Receiver initialization is synchronous during this call.\n- A plain transmitter performs only the immediate broadcast.\n- Receivers remain independently mutable between broadcasts.\n- Passing no receivers creates an effect with no signal dependencies."
+            "- Receiver initialization is synchronous during this call.\n- A plain transmitter performs only the immediate broadcast.\n- Receivers remain independently mutable between broadcasts.\n- Disposing the returned receiver stops future broadcasts.\n- Passing no receivers creates an effect with no signal dependencies."
           ],
           "examples": [
-            "```typescript\nconst source = signal(1);\nconst left = signal(0);\nconst right = signal(0);\nconst connection = transmit(source, left, right);\nsource.value = 2;\nconsole.log(left.value, right.value); // 2, 2\nconsole.log(connection.id);\n```"
+            "```typescript\nconst source = signal(1);\nconst left = signal(0);\nconst right = signal(0);\nconst connection = transmit(source, left, right);\nsource.value = 2;\nconsole.log(left.value, right.value); // 2, 2\nconsole.log(connection.id);\nconnection.dispose();\n```"
           ],
           "params": [
             {
@@ -3468,22 +3468,22 @@
         "isExported": true,
         "exportKind": "named",
         "category": "core",
-        "signature": "export type Receiver = {\n  readonly id: number;\n  readonly run: () => void;\n};",
+        "signature": "export type Receiver = {\n  readonly id: number;\n  readonly run: () => void;\n  readonly dispose: () => void;\n};",
         "parameters": [],
         "typeParameters": [],
         "tsdoc": {
           "title": "Represents a synchronous effect receiver.",
           "summary": "A receiver has a stable identifier and invokes its effect callback through\nrun() when a connected source signal is written.",
           "remarks": [
-            "- Receivers do not expose disposal or lifecycle controls.\n- The connector uses id to deduplicate repeated reads of one source signal."
+            "- dispose() removes the receiver from all captured source-signal dependencies.\n- dispose() is idempotent; run() remains available for a manual non-collecting run.\n- The reception manager uses id to deduplicate repeated reads of one source signal."
           ],
           "examples": [
-            "```typescript\ndeclare const receiver: Receiver;\nreceiver.run();\n```"
+            "```typescript\ndeclare const receiver: Receiver;\nreceiver.run();\nreceiver.dispose();\n```"
           ],
           "params": [],
           "returns": [],
           "see": [
-            "{@link SignalConnector} - Stores and invokes receivers.",
+            "{@link SignalsReceptionManager} - Stores and invokes receivers.",
             "{@link effect} - Creates receivers from callbacks."
           ],
           "template": [],
@@ -3537,7 +3537,39 @@
         "isExported": true,
         "exportKind": "named",
         "category": "core",
-        "signature": "export type SignalConnector = {\n  readonly installReceiver: (effect: {\n    readonly id: number;\n    readonly run: () => void;\n  }) => void;\n  readonly ignoreReceiver: <T>(callbackWithSignals: () => T) => T;\n  readonly connectWithNewReceiver: (signal: BaseSourceSignal<unknown>) => void;\n  readonly processSignal: (signal: BaseSourceSignal<unknown>) => void;\n};",
+        "signature": "export type SignalConnector = SignalsReceptionManager;",
+        "parameters": [],
+        "typeParameters": [],
+        "tsdoc": {
+          "title": "Preserves the legacy reception-manager type name.",
+          "summary": "SignalConnector is an exact alias of SignalsReceptionManager for existing\nconsumers that imported the former public type.",
+          "remarks": [
+            "- This alias exists only for source compatibility.\n- New code should use SignalsReceptionManager."
+          ],
+          "examples": [
+            "```typescript\ndeclare const manager: SignalConnector;\nmanager.runReceivers(signal(1));\n```"
+          ],
+          "params": [],
+          "returns": [],
+          "see": [
+            "{@link SignalsReceptionManager} - The current reception-manager type name."
+          ],
+          "template": [],
+          "deprecated": [
+            "Use {@link SignalsReceptionManager} instead."
+          ]
+        },
+        "sourcePath": "src/_core/_types.ts"
+      },
+      {
+        "name": "SignalsReceptionManager",
+        "kind": "type",
+        "filePath": "src/_core/_types.ts",
+        "isCallable": false,
+        "isExported": true,
+        "exportKind": "named",
+        "category": "core",
+        "signature": "export type SignalsReceptionManager = {\n  readonly addReceiver: (receiver: Receiver) => void;\n  readonly removeReceiver: (receiver: Receiver) => void;\n  readonly ignoreReceiver: <T>(callbackWithSignals: () => T) => T;\n  readonly connectWithNewReceiver: (signal: BaseSourceSignal<unknown>) => void;\n  readonly runReceivers: (signal: BaseSourceSignal<unknown>) => void;\n};",
         "parameters": [],
         "typeParameters": [],
         "tsdoc": {
@@ -3547,7 +3579,7 @@
             "- This is exported for the core implementation; applications normally use effect() instead.\n- Dependency registration occurs only while an effect is first installed."
           ],
           "examples": [
-            "```typescript\ndeclare const connector: SignalConnector;\nconnector.processSignal(signal(1));\n```"
+            "```typescript\ndeclare const receptionManager: SignalsReceptionManager;\nreceptionManager.runReceivers(signal(1));\n```"
           ],
           "params": [],
           "returns": [],

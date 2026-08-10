@@ -1,4 +1,4 @@
-import { Connector } from "./connector";
+import { ConnectionsManager } from "./signals-reception-manager";
 
 /**
  * Evaluates a callback without collecting source-signal reads for the currently installing effect.
@@ -32,5 +32,5 @@ import { Connector } from "./connector";
  * @see {@link BaseSourceSignal.nonReactiveValue} - Reads one signal without collecting it.
  */
 export const deadZone = <T>(callbackWithSignals: () => T): T => {
-  return Connector.ignoreReceiver(callbackWithSignals);
+  return ConnectionsManager.ignoreReceiver(callbackWithSignals);
 };

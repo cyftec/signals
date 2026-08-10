@@ -1,4 +1,4 @@
-import { Receiver, SignalConnector, BaseSourceSignal } from "./_types";
+import { Receiver, SignalsReceptionManager, BaseSourceSignal } from "./_types";
 
 /**
  * Coordinates initial effect dependency collection and synchronous source writes.
@@ -7,7 +7,7 @@ import { Receiver, SignalConnector, BaseSourceSignal } from "./_types";
  * invokes each recorded receiver when that source signal changes.
  *
  * @remarks
- * - Dependencies are captured only during installReceiver().
+ * - Dependencies are captured only during addReceiver().
  * - Repeated reads of one signal by a receiver register one receiver identifier.
  * - Receivers run synchronously in insertion order for each source signal.
  *
@@ -18,10 +18,10 @@ import { Receiver, SignalConnector, BaseSourceSignal } from "./_types";
  * count.value = 1;
  * ```
  *
- * @see {@link effect} - Installs receivers through this connector.
+ * @see {@link effect} - Adds receivers through this manager.
  * @see {@link BaseSourceSignal} - The signal shape that triggers receivers.
  */
-export const Connector = ((): SignalConnector => {
+export const ConnectionsManager = ((): SignalsReceptionManager => {
   let _newReceiver: Receiver | null = null;
   const _receivers = new Map<number, Receiver>();
   const _signalsReceiversMap = new Map<
@@ -29,15 +29,28 @@ export const Connector = ((): SignalConnector => {
     Set<number>
   >();
 
-  const signalConnector: SignalConnector = {
-    installReceiver(receiver: Receiver) {
+  const signalsReceptionManager: SignalsReceptionManager = {
+    addReceiver(receiver: Receiver) {
       _newReceiver = receiver;
       try {
         receiver.run();
+      } catch (error) {
+        signalsReceptionManager.removeReceiver(receiver);
+        throw error;
       } finally {
         _newReceiver = null;
       }
       _receivers.set(receiver.id, receiver);
+    },
+
+    removeReceiver(receiver: Receiver) {
+      _signalsReceiversMap.forEach((receiverIdsSet, signal) => {
+        receiverIdsSet.delete(receiver.id);
+        if (receiverIdsSet.size === 0) {
+          _signalsReceiversMap.delete(signal);
+        }
+      });
+      _receivers.delete(receiver.id);
     },
 
     ignoreReceiver<T>(callbackWithSignals: () => T): T {
@@ -73,5 +86,5 @@ export const Connector = ((): SignalConnector => {
     },
   };
 
-  return signalConnector;
+  return signalsReceptionManager;
 })();

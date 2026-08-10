@@ -17,16 +17,19 @@ import { deadZone, derive, effect, signal } from "@cyftec/signals";
 const count = signal(1);
 const doubled = derive(() => count.value * 2);
 
-effect(() => {
+const receiver = effect(() => {
   console.log(count.value, doubled.value);
   console.log(deadZone(() => count.value)); // evaluated without subscribing
 });
 
 count.value = 2;
+receiver.dispose(); // stop future automatic reruns
 ```
 
 `effect()` runs immediately. Source signals read during that initial run become
-permanent dependencies, and later writes rerun the effect synchronously.
+dependencies until `receiver.dispose()` is called, and later writes rerun the
+effect synchronously. Disposal is idempotent; `receiver.run()` remains
+available for a manual, non-collecting run.
 
 `derive()` is lazy: its catcher runs every time `.value` is read. Derived
 signals do not cache, retain prior values, or independently notify effects.
@@ -39,7 +42,7 @@ provide `nonReactiveValue` for a single non-collecting read.
 
 - Writable source signals via `signal()` and lazy read-only projections via
   `derive()`.
-- Synchronous effects with fixed dependencies.
+- Synchronous effects with fixed, disposable dependencies.
 - `deadZone()` and `nonReactiveValue` for explicitly non-collecting reads.
 - Array, object, string, number, and boolean helper families selected from the
   initial value.
