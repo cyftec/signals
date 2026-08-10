@@ -13,7 +13,7 @@ import { SourceSignal, DerivedSignal } from "..";
  * @example
  * ```typescript
  * declare const connector: SignalConnector;
- * connector.processSignal(signal(1));
+ * connector.runReceivers(signal(1));
  * ```
  *
  * @see {@link Receiver} - The callback registered for source-signal changes.
@@ -26,7 +26,7 @@ export type SignalConnector = {
   }) => void;
   readonly ignoreReceiver: <T>(callbackWithSignals: () => T) => T;
   readonly connectWithNewReceiver: (signal: BaseSourceSignal<unknown>) => void;
-  readonly processSignal: (signal: BaseSourceSignal<unknown>) => void;
+  readonly runReceivers: (signal: BaseSourceSignal<unknown>) => void;
 };
 
 /**

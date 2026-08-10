@@ -114,7 +114,7 @@ export const signal = <T>(
 
       _prevValue = _value;
       _value = newSignalValue;
-      Connector.processSignal(sourceSignal as BaseSourceSignal<unknown>);
+      Connector.runReceivers(sourceSignal as BaseSourceSignal<unknown>);
     },
 
     mutateWith(mutatedSignalEvaluator: (oldSignalValue: T) => T) {
