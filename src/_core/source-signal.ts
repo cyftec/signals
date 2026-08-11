@@ -12,12 +12,12 @@ import {
 } from "./data-specific-methods";
 
 type SourceSignalMethods<T> =
-  IsExactlyAny<T> extends true
+  GenericMethods<T> &
+  (IsExactlyAny<T> extends true
     ? {}
     : T extends unknown
-      ? GenericMethods<DataMethodValue<T>> &
-          MutatingAndNonMutatingMethods<DataMethodValue<T>>
-      : never;
+      ? MutatingAndNonMutatingMethods<DataMethodValue<T>>
+      : never);
 
 /**
  * Represents a writable signal with generic and data-specific helpers.

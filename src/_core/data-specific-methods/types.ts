@@ -161,7 +161,6 @@ export type IsExactly<T, U> =
  * ```
  *
  * @see {@link IsExactly} - For exact bidirectional comparison
- * @see {@link HasPrimitive} - For primitive-member detection
  */
 export type IsUnionAndHasOtherTypeThan<T, U> = [true] extends [IsExactly<T, U>]
   ? never
@@ -170,47 +169,6 @@ export type IsUnionAndHasOtherTypeThan<T, U> = [true] extends [IsExactly<T, U>]
     : Exclude<T, U> extends never
       ? never
       : true;
-
-/**
- * Represents the primitive values supported by generic logical methods.
- *
- * Includes strings, numbers, bigints, booleans, `null`, and `undefined`.
- *
- * @remarks
- * - Objects, functions, symbols, and arrays are not members of this union
- *
- * @example
- * ```typescript
- * const value: Primitive = null;
- * ```
- *
- * @see {@link HasPrimitive} - For detecting members of this union
- * @see {@link GenericMethods} - For the methods selected from primitive values
- */
-export type Primitive = string | number | bigint | boolean | null | undefined;
-
-/**
- * Determines whether a type contains at least one supported primitive member.
- *
- * Produces `true` when extracting `Primitive` from `T` is non-empty and `never`
- * otherwise.
- *
- * @template T - The type to inspect
- *
- * @remarks
- * - Union inputs succeed when any member belongs to `Primitive`
- *
- * @example
- * ```typescript
- * type NullableString = HasPrimitive<string | null>; // true
- * type RecordOnly = HasPrimitive<{ value: string }>; // never
- * ```
- *
- * @see {@link Primitive} - The primitive union being extracted
- * @see {@link GenericMethods} - Where this predicate enables logical methods
- */
-export type HasPrimitive<T> =
-  Extract<T, Primitive> extends never ? never : true; 
 
 /**
  * Identifies the result style of a generic comparison.
@@ -232,12 +190,12 @@ export type HasPrimitive<T> =
 export type GenericMethodReturnType = "ternary" | "deriver";
 
 /**
- * Defines the fallback method available to supported primitive values.
+ * Defines the common methods available to every value type.
  *
  * The `or()` method selects an alternative for a falsy input and returns a
  * signal matching the derived result type.
  *
- * @template P - The primitive input value type
+ * @template P - The input value type
  *
  * @remarks
  * - The result excludes `null` and `undefined` from the original value branch
@@ -313,108 +271,51 @@ export type ComparisonReturnType<
   : DerivedSignal<boolean>;
 
 /**
- * Defines truthiness and strict-equality comparisons.
+ * Defines the universal JavaScript comparison surface.
  *
- * Supplies `truthy()`, `falsy()`, `equalTo()`, and `notEqualTo()` with a shared
- * comparison result type.
+ * Supplies truthiness, strict-equality, and relational comparisons with a
+ * shared result type for every input and operand type.
  *
  * @template GenericMethodReturn - Whether methods return signals or ternary continuations
- * @template R - The resolved comparison result type
  *
  * @remarks
- * - Equality methods use strict JavaScript equality semantics
+ * - Equality methods use strict JavaScript equality semantics.
+ * - Relational methods preserve JavaScript's native primitive-coercion rules.
+ * - Symbols can cause relational methods to throw a `TypeError`, just as the
+ *   corresponding JavaScript operator would.
  *
  * @example
  * ```typescript
- * declare const checks: ExistenceComparison<
- *   "deriver",
- *   DerivedSignal<boolean>
- * >;
- * const present = checks.truthy();
+ * declare const checks: Comparison<"deriver">;
+ * checks.greaterThan(new Date());
  * ```
  *
- * @see {@link Comparison} - For the complete comparison surface
- * @see {@link MeasureComparison} - For ordered numeric comparisons
- */
-export type ExistenceComparison<
-  GenericMethodReturn extends GenericMethodReturnType,
-  R extends ComparisonReturnType<GenericMethodReturn>,
-> = {
-  truthy: () => R;
-  falsy: () => R;
-  equalTo: (compareValue: MaybeSignal<unknown>) => R;
-  notEqualTo: (compareValue: MaybeSignal<unknown>) => R;
-};
-
-/**
- * Defines ordered numeric comparisons.
- *
- * Supplies strict and inclusive greater-than and smaller-than methods with a
- * shared comparison result type.
- *
- * @template GenericMethodReturn - Whether methods return signals or ternary continuations
- * @template R - The resolved comparison result type
- *
- * @remarks
- * - Comparison operands may be signals
- *
- * @example
- * ```typescript
- * declare const checks: MeasureComparison<
- *   "deriver",
- *   DerivedSignal<boolean>
- * >;
- * const positive = checks.greaterThan(0);
- * ```
- *
- * @see {@link Comparison} - For the primitive comparison composition
- * @see {@link ExistenceComparison} - For truthiness and equality checks
- */
-export type MeasureComparison<
-  GenericMethodReturn extends GenericMethodReturnType,
-  R extends ComparisonReturnType<GenericMethodReturn>,
-> = {
-  greaterThan: (compareValue: MaybeSignal<number>) => R;
-  greaterThanOrEqualTo: (compareValue: MaybeSignal<number>) => R;
-  smallerThan: (compareValue: MaybeSignal<number>) => R;
-  smallerThanOrEqualTo: (compareValue: MaybeSignal<number>) => R;
-};
-
-/**
- * Composes the comparison methods available to a primitive value.
- *
- * Always includes truthiness and equality checks and conditionally includes
- * ordered comparisons when the value type is numeric.
- *
- * @template GenericMethodReturn - Whether methods return signals or ternary continuations
- * @template P - The primitive value type being compared
- *
- * @remarks
- * - Non-number primitives do not expose measure comparisons at the type level
- *
- * @example
- * ```typescript
- * declare const checks: Comparison<"deriver", number>;
- * checks.equalTo(1);
- * checks.greaterThan(0);
- * ```
- *
- * @see {@link ExistenceComparison} - The always-present comparison group
- * @see {@link MeasureComparison} - The number-only comparison group
+ * @see {@link ComparisonReturnType} - Resolves direct and ternary results.
  */
 export type Comparison<
   GenericMethodReturn extends GenericMethodReturnType,
-  P extends Primitive,
-> = ExistenceComparison<
-  GenericMethodReturn,
-  ComparisonReturnType<GenericMethodReturn>
-> &
-  (P extends number
-    ? MeasureComparison<
-        GenericMethodReturn,
-        ComparisonReturnType<GenericMethodReturn>
-      >
-    : {});
+> = {
+  truthy: () => ComparisonReturnType<GenericMethodReturn>;
+  falsy: () => ComparisonReturnType<GenericMethodReturn>;
+  equalTo: (
+    compareValue: MaybeSignal<unknown>,
+  ) => ComparisonReturnType<GenericMethodReturn>;
+  notEqualTo: (
+    compareValue: MaybeSignal<unknown>,
+  ) => ComparisonReturnType<GenericMethodReturn>;
+  greaterThan: (
+    compareValue: MaybeSignal<unknown>,
+  ) => ComparisonReturnType<GenericMethodReturn>;
+  greaterThanOrEqualTo: (
+    compareValue: MaybeSignal<unknown>,
+  ) => ComparisonReturnType<GenericMethodReturn>;
+  smallerThan: (
+    compareValue: MaybeSignal<unknown>,
+  ) => ComparisonReturnType<GenericMethodReturn>;
+  smallerThanOrEqualTo: (
+    compareValue: MaybeSignal<unknown>,
+  ) => ComparisonReturnType<GenericMethodReturn>;
+};
 
 /**
  * Wraps comparisons for a string or array length.
@@ -438,19 +339,19 @@ export type Comparison<
 export type LengthComparison<
   GenericMethodReturn extends GenericMethodReturnType,
 > = {
-  length: Comparison<GenericMethodReturn, number>;
+  length: Comparison<GenericMethodReturn>;
 };
 
 /**
- * Defines direct and ternary comparison groups for a supported value.
+ * Defines direct and ternary comparison groups for every value.
  *
  * The `is` group returns direct result signals, while the `if` group returns
  * `then()` continuations. Length groups are added for strings and arrays.
  *
- * @template T - The primitive or array value type
+ * @template T - The value type used to conditionally expose length methods
  *
  * @remarks
- * - Numeric primitives include ordered comparisons
+ * - Every value type includes truthiness, equality, and ordered comparisons
  * - Strings and arrays include nested `length` comparisons
  *
  * @example
@@ -460,20 +361,20 @@ export type LengthComparison<
  * const label = methods.if.truthy().then("yes", "no");
  * ```
  *
- * @see {@link Comparison} - The primitive comparison group
+ * @see {@link Comparison} - The universal comparison group
  * @see {@link LengthComparison} - The string and array length group
  */
 export type IsAndIfComparison<T> = {
-  is: ([T] extends [Primitive] ? Comparison<"deriver", T> : {}) &
-    ([string] extends [T]
-      ? LengthComparison<"deriver">
-      : [any[]] extends [T]
+  is: Comparison<"deriver"> &
+    ([true] extends [IsExactlyAny<T>]
+      ? {}
+      : [T] extends [string | readonly unknown[]]
         ? LengthComparison<"deriver">
         : {});
-  if: ([T] extends [Primitive] ? Comparison<"ternary", T> : {}) &
-    ([string] extends [T]
-      ? LengthComparison<"ternary">
-      : [any[]] extends [T]
+  if: Comparison<"ternary"> &
+    ([true] extends [IsExactlyAny<T>]
+      ? {}
+      : [T] extends [string | readonly unknown[]]
         ? LengthComparison<"ternary">
         : {});
 };
@@ -481,15 +382,14 @@ export type IsAndIfComparison<T> = {
 /**
  * Selects the generic logical methods available to a value type.
  *
- * Combines fallback, direct comparison, and ternary comparison surfaces based
- * on the input's primitive, string, array, or object shape.
+ * Combines common, direct comparison, and ternary comparison surfaces for any
+ * input value type.
  *
  * @template T - The input value type
  *
  * @remarks
- * - Every supported value type receives `or()` and `toString()`
- * - Primitive-containing types also receive `is` and `if`
- * - Array-only types receive length-based `is` and `if` groups
+ * - Every value type receives `or()`, `toString()`, `is`, and `if`
+ * - Strings and arrays also receive length-based `is` and `if` groups
  *
  * @example
  * ```typescript
@@ -500,13 +400,8 @@ export type IsAndIfComparison<T> = {
  * @see {@link CommonGenericMethods} - The fallback surface
  * @see {@link IsAndIfComparison} - The comparison surfaces
  */
-export type GenericMethods<T> = [
-  true,
-] extends [IsExactlyAny<T>]
-  ? CommonGenericMethods<any> & IsAndIfComparison<any>
-  : [true] extends [IsExactly<T, Record<string, any>>]
-    ? CommonGenericMethods<T>
-    : CommonGenericMethods<T> & IsAndIfComparison<T>;
+export type GenericMethods<T> = CommonGenericMethods<T> &
+  IsAndIfComparison<T>;
 
 /**
  * Intrinsic mutating methods for array signals.

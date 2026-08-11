@@ -4,13 +4,9 @@ import { MaybeSignal } from "../_types";
 import { derive, DerivedSignal } from "../derived-signal";
 import type {
   Comparison,
-  ComparisonReturnType,
-  ExistenceComparison,
   GenericMethodReturnType,
   GenericMethods,
   LengthComparison,
-  MeasureComparison,
-  Primitive,
   TernaryThen,
 } from "./types";
 
@@ -45,153 +41,36 @@ const getTernaryThen = (truthyEvaluator: () => boolean): TernaryThen => {
 };
 
 /**
- * Creates a logical primitive methods object for truthy/falsy and equality checks.
+ * Creates universal truthiness, equality, and relational comparisons.
  *
- * This function creates methods for checking if a value is truthy or falsy,
- * and for comparing it with other values for equality.
- *
- * @template T - The type of value to check
- * @template R - The return type (DerivedSignal or TernaryThen)
- * @param valueGetter - A function that returns the value to check
- * @param forTernary - Whether to return TernaryThen for ternary operations
- * @returns A logical primitive methods object
- *
- * @remarks
- * - `truthy` returns true if the value is truthy
- * - `falsy` returns true if the value is falsy
- * - `equalTo` returns true if the value equals the comparison value
- * - `notEqualTo` returns true if the value does not equal the comparison value
- * - When forTernary is true, methods return TernaryThen for conditional selection
- */
-const getExistenceComparisonMethods = <
-  GenericMethodReturn extends GenericMethodReturnType,
-  T extends Primitive,
-  R extends ComparisonReturnType<GenericMethodReturn>,
->(
-  valueGetter: () => T,
-  forTernary: boolean,
-): ExistenceComparison<GenericMethodReturn, R> => {
-  const truthyEvaluator = () => !!valueGetter();
-  const falsyEvaluator = () => !valueGetter();
-
-  const truthyChecker = (forTernaryThen: boolean) => () =>
-    forTernaryThen ? getTernaryThen(truthyEvaluator) : derive(truthyEvaluator);
-
-  const falsyChecker = (forTernaryThen: boolean) => () =>
-    forTernaryThen ? getTernaryThen(falsyEvaluator) : derive(falsyEvaluator);
-
-  const equalToChecker =
-    (forTernaryThen: boolean) => (compareValue: MaybeSignal<unknown>) => {
-      const equalityEvaluator = () =>
-        valueGetter() === (value(compareValue) as T);
-      return forTernaryThen
-        ? getTernaryThen(equalityEvaluator)
-        : derive(equalityEvaluator);
-    };
-
-  const notEqualToChecker =
-    (forTernaryThen: boolean) => (compareValue: MaybeSignal<unknown>) => {
-      const notEqualityEvaluator = () =>
-        valueGetter() !== (value(compareValue) as T);
-      return forTernaryThen
-        ? getTernaryThen(notEqualityEvaluator)
-        : derive(notEqualityEvaluator);
-    };
-
-  return {
-    truthy: truthyChecker(forTernary),
-    falsy: falsyChecker(forTernary),
-    equalTo: equalToChecker(forTernary),
-    notEqualTo: notEqualToChecker(forTernary),
-  } as ExistenceComparison<GenericMethodReturn, R>;
-};
-
-/**
- * Creates a logical number methods object for numeric comparisons.
- *
- * This function creates methods for comparing numeric values using
- * greater-than and less-than operators.
- *
- * @template R - The return type (DerivedSignal or TernaryThen)
- * @param numberGetter - A function that returns the number to compare
- * @param forTernary - Whether to return TernaryThen for ternary operations
- * @returns A logical number methods object
- *
- * @remarks
- * - `greaterThan` returns true if the value is greater than the comparison value
- * - `greaterThanOrEqualTo` returns true if the value is greater than or equal
- * - `smallerThan` returns true if the value is less than the comparison value
- * - `smallerThanOrEqualTo` returns true if the value is less than or equal
- * - When forTernary is true, methods return TernaryThen for conditional selection
- */
-const getMeasureComparisonMethods = <
-  GenericMethodReturn extends GenericMethodReturnType,
-  R extends ComparisonReturnType<GenericMethodReturn>,
->(
-  numberGetter: () => number,
-  forTernary: boolean,
-): MeasureComparison<GenericMethodReturn, R> => {
-  const greaterThanChecker =
-    (forTernaryThen: boolean) => (compareValue: MaybeSignal<number>) => {
-      const greaterThanEvaluator = () =>
-        numberGetter() > (value(compareValue) as number);
-      return forTernaryThen
-        ? getTernaryThen(greaterThanEvaluator)
-        : derive(greaterThanEvaluator);
-    };
-  const greaterThanOrEqualToChecker =
-    (forTernaryThen: boolean) => (compareValue: MaybeSignal<number>) => {
-      const greaterThanOrEqualToEvaluator = () =>
-        numberGetter() >= (value(compareValue) as number);
-      return forTernaryThen
-        ? getTernaryThen(greaterThanOrEqualToEvaluator)
-        : derive(greaterThanOrEqualToEvaluator);
-    };
-  const smallerThanChecker =
-    (forTernaryThen: boolean) => (compareValue: MaybeSignal<number>) => {
-      const smallerThanEvaluator = () =>
-        numberGetter() < (value(compareValue) as number);
-      return forTernaryThen
-        ? getTernaryThen(smallerThanEvaluator)
-        : derive(smallerThanEvaluator);
-    };
-  const smallerThanOrEqualToChecker =
-    (forTernaryThen: boolean) => (compareValue: MaybeSignal<number>) => {
-      const smallerThanOrEqualToEvaluator = () =>
-        numberGetter() <= (value(compareValue) as number);
-      return forTernaryThen
-        ? getTernaryThen(smallerThanOrEqualToEvaluator)
-        : derive(smallerThanOrEqualToEvaluator);
-    };
-
-  return {
-    greaterThan: greaterThanChecker(forTernary),
-    greaterThanOrEqualTo: greaterThanOrEqualToChecker(forTernary),
-    smallerThan: smallerThanChecker(forTernary),
-    smallerThanOrEqualTo: smallerThanOrEqualToChecker(forTernary),
-  } as MeasureComparison<GenericMethodReturn, R>;
-};
-
-/**
- * Combines primitive and number logical methods into a single checker.
- *
- * @template T - The type of value to check
- * @template R - The return type (DerivedSignal or TernaryThen)
- * @param valueGetter - A function that returns the value to check
- * @param forTernary - Whether to return TernaryThen for ternary operations
- * @returns A combined logical checker object
+ * Relational evaluators deliberately delegate to JavaScript operators. Their
+ * native coercion and error behavior therefore remains observable.
  */
 const getComparisonMethods = <
   GenericMethodReturn extends GenericMethodReturnType,
-  T extends Primitive,
 >(
-  valueGetter: () => T,
+  valueGetter: () => unknown,
   forTernary: boolean,
-): Comparison<GenericMethodReturn, T> => {
+): Comparison<GenericMethodReturn> => {
+  const result = (evaluator: () => boolean) =>
+    forTernary ? getTernaryThen(evaluator) : derive(evaluator);
+
   return {
-    ...getExistenceComparisonMethods(valueGetter, forTernary),
-    ...getMeasureComparisonMethods(valueGetter as () => number, forTernary),
-  } as unknown as Comparison<GenericMethodReturn, T>;
+    truthy: () => result(() => !!valueGetter()),
+    falsy: () => result(() => !valueGetter()),
+    equalTo: (compareValue) =>
+      result(() => valueGetter() === value(compareValue)),
+    notEqualTo: (compareValue) =>
+      result(() => valueGetter() !== value(compareValue)),
+    greaterThan: (compareValue) =>
+      result(() => (valueGetter() as any) > (value(compareValue) as any)),
+    greaterThanOrEqualTo: (compareValue) =>
+      result(() => (valueGetter() as any) >= (value(compareValue) as any)),
+    smallerThan: (compareValue) =>
+      result(() => (valueGetter() as any) < (value(compareValue) as any)),
+    smallerThanOrEqualTo: (compareValue) =>
+      result(() => (valueGetter() as any) <= (value(compareValue) as any)),
+  } as Comparison<GenericMethodReturn>;
 };
 
 /**
@@ -234,7 +113,7 @@ const getLengthMethods = <GenericMethodReturn extends GenericMethodReturnType>(
  * - `if` methods return a `then()` selector for reactive conditional values
  * - `toString()` renders nullish values explicitly, plain objects as JSON, and other values through JavaScript `toString()`
  * - Length comparisons are exposed for strings and arrays
- * - Measure comparisons are exposed for numbers
+ * - Relational comparisons are exposed for every value type
  * - All inputs produce `DerivedSignal` results; inputs produce `DerivedSignal` results
  *
  * @example
@@ -253,7 +132,7 @@ export const getGenericMethods = <T>(
   // generic methods are valid even for null or undefined
   baseSignal: MaybeSignal<T>,
 ): GenericMethods<T> => {
-  const valueGetter = () => value(baseSignal) as Primitive;
+  const valueGetter = () => value(baseSignal);
   const lengthGetter = () => {
     const val = value(baseSignal);
     if (typeof val === "string" || Array.isArray(val)) return val.length;

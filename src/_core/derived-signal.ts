@@ -11,12 +11,12 @@ import { effect } from "./effect";
 import { signal } from "./source-signal";
 
 type DerivedSignalMethods<T> =
-  IsExactlyAny<T> extends true
+  GenericMethods<T> &
+  (IsExactlyAny<T> extends true
     ? {}
     : T extends unknown
-      ? GenericMethods<DataMethodValue<T>> &
-          NonMutatingMethods<DataMethodValue<T>>
-      : never;
+      ? NonMutatingMethods<DataMethodValue<T>>
+      : never);
 
 /**
  * Represents a read-only, eagerly maintained signal with helper methods.

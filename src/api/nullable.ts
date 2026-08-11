@@ -2,30 +2,29 @@ import { type MaybeSignal, type PlainValue } from "../_core/_types";
 import {
   type GenericMethods,
   getGenericMethods,
-  type Primitive,
 } from "../_core/data-specific-methods";
 
 /**
- * Adds generic logical helpers to a plain or signal-wrapped primitive input.
+ * Adds generic helpers to any plain or signal-wrapped input.
  *
  * The wrapper exposes `or`, `is`, `if`, and `toString()` operations while preserving the
  * derived result helpers for any accepted plain value or signal input.
  *
  * @template I - The concrete plain or signal input type.
- * @param input - A value whose plain type includes at least one primitive member.
+ * @param input - A plain value or signal to wrap.
  * @returns Generic helper methods specialized to the input's plain value type.
  *
  * @remarks
- * - The type constraint rejects inputs with no primitive member.
  * - `or` uses JavaScript truthiness, not only nullishness.
  * - `toString()` produces an eagerly maintained string representation.
- * - Comparisons accept signal-capable operands.
+ * - Comparisons accept any signal-capable operand and preserve JavaScript
+ *   coercion behavior for relational operators.
  * - Result helpers are eagerly maintained derived signals, including for plain inputs.
  *
  * @example
  * ```typescript
  * const count = signal<number | null>(null);
- * const label = maybePlain(count).if.falsy().then("missing", "present");
+ * const label = nullable(count).if.falsy().then("missing", "present");
  * count.value = 1;
  * console.log(label.value); // "present"
  * ```
@@ -34,8 +33,7 @@ import {
  * @see {@link DerivedSignal} - Represents helper results.
  * @see {@link value} - Unwraps signal operands.
  */
-export const maybePlain = <I extends MaybeSignal<unknown>>(
-  input: I &
-    (Extract<PlainValue<I>, Primitive> extends never ? never : unknown),
+export const nullable = <I extends MaybeSignal<unknown>>(
+  input: I,
 ): GenericMethods<PlainValue<I>> =>
   getGenericMethods<PlainValue<I>>(input as MaybeSignal<PlainValue<I>>);

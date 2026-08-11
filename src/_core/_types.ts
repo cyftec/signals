@@ -174,7 +174,7 @@ export type MaybeSignal<T> = T | Signal<T>;
  * ```
  *
  * @see {@link Signal} - Signal kinds preserved by this transformation.
- * @see {@link maybePlain} - Adds generic helpers to maybe-plain primitive inputs.
+ * @see {@link nullable} - Adds generic helpers to plain or signal inputs.
  */
 export type NonNullSignalValue<S> =
   S extends SourceSignal<infer SS>

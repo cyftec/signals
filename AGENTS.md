@@ -67,7 +67,7 @@ console.log(text.trim().value); // "hello"
 
 Arrays, plain objects, strings, numbers, and source booleans receive their respective helpers. Mutators exist only on source signals under `.mutate`; projections return eagerly maintained `DerivedSignal` values.
 
-Main exports are `signal`, `derive`, `effect`, `deadZone`, `dispose`, `compute`, `tmpl`, `receive`, `transmit`, `promstates`, `maybePlain`, `op`, `value`, `getPlainMethodParams`, and the runtime signal guards.
+Main exports are `signal`, `derive`, `effect`, `deadZone`, `dispose`, `compute`, `tmpl`, `receive`, `transmit`, `promstates`, `nullable`, `op`, `value`, `getPlainMethodParams`, and the runtime signal guards.
 
 ## Semantic contract
 
@@ -145,15 +145,16 @@ Source mutators publish through normal source assignment. Every read-only helper
 
 ### Generic helpers
 
-`or`, `is`, `if`, and `toString()` are attached to every source and derived signal.
+`or`, `is`, `if`, and `toString()` are attached to every source and derived signal. Their direct and ternary comparison operations are available for every value type.
 
 - `or(alternative)` uses JavaScript `||`; every falsy value selects the alternative.
 - `is` provides truthiness and strict-equality comparisons.
-- Number values also provide strict and inclusive measure comparisons.
+- `is` and `if` also provide strict and inclusive relational comparisons for every value type. They use JavaScript's `>`, `>=`, `<`, and `<=` operators directly.
 - Strings and arrays provide those comparisons under `.is.length` and `.if.length`.
 - `if.*` returns `.then(truthyOption, falsyOption)`; both options are read during each computation before the selected option is returned.
 - `toString()` returns an eagerly maintained `DerivedSignal<string>`. It renders `null` as `"null"`, `undefined` as `"undefined"`, plain objects with `JSON.stringify`, and every other value with its JavaScript `toString()` method.
-- `maybePlain(input)` exposes this generic surface for a plain or signal input type with a primitive member.
+- Relational comparisons preserve JavaScript coercion: for example, a `Date` compares to a number through its timestamp. Values that JavaScript cannot compare, such as a symbol and a number, throw the corresponding `TypeError`.
+- `nullable(input)` exposes this generic surface for every plain or signal input type.
 
 ### Convenience APIs
 
@@ -284,9 +285,9 @@ input.is.notEqualTo(other);
 input.if.truthy().then(whenTruthy, whenFalsy);
 ```
 
-Numbers also provide the four measure comparisons. Strings and arrays provide the equivalent comparison surface under `.is.length` and `.if.length`. All results are eagerly maintained `DerivedSignal` values.
+All values provide the four relational comparisons. Strings and arrays provide the equivalent comparison surface under `.is.length` and `.if.length`. Relational operations follow JavaScript coercion and may throw for unsupported operands such as symbols. All results are eagerly maintained `DerivedSignal` values.
 
-`maybePlain(input)` supplies this generic surface for a static type with at least one primitive branch.
+`nullable(input)` supplies this generic surface for any plain or signal input type.
 
 ### Convenience APIs
 
@@ -305,6 +306,14 @@ const text = tmpl`Hello ${name}; count: ${count}`;
 ```
 
 Returns an eagerly maintained derived string. Expressions may be plain values, signals, or zero-argument functions; nullish expressions render as empty strings.
+
+#### `nullable`
+
+```ts
+const threshold = nullable(new Date()).is.greaterThan(Date.now());
+```
+
+Returns the generic helper surface for any plain value or signal. Its truthiness and strict-equality checks accept every value type. Relational checks also accept every value and operand type, preserving JavaScript's native coercion and `TypeError` behavior.
 
 #### `op`
 
@@ -425,7 +434,7 @@ The derived `nonReactiveValue` getter reads the backing source's stored result d
 
 - `compute` maps signal-capable arguments through `value` inside an eager derived computation before calling its function.
 - `receive` and `transmit` compose immediate effects to copy values.
-- `maybePlain` exposes generic helpers for a plain or signal primitive input.
+- `nullable` exposes generic helpers for any plain or signal input.
 - `op` selects a lazy generic, numeric, or string-and-array evaluator from an initial value. Its terminal values use `derive`, so they are eager once created and retain only sources read on their first evaluation.
 - `promstates` stores promise state in one object source signal and returns property projections.
 - `tmpl` is a derived tagged-template evaluator.
@@ -481,7 +490,7 @@ Source-array mutators intentionally use a shared mutable array surface so they d
 
 ### Signal-capable inputs
 
-APIs accepting `MaybeSignal<T>` accept a narrower signal where the declared value type is wider. This includes `value`, `getPlainMethodParams`, `compute` arguments, `maybePlain` inputs, signal-valued data-method arguments, `receive` transmitters, and `transmit` transmitters with wider source receivers.
+APIs accepting `MaybeSignal<T>` accept a narrower signal where the declared value type is wider. This includes `value`, `getPlainMethodParams`, `compute` arguments, `nullable` inputs, signal-valued data-method arguments, `receive` transmitters, and `transmit` transmitters with wider source receivers.
 
 ```ts
 const narrow = signal<1>(1);
@@ -507,7 +516,7 @@ bun run build:meta
 bun run build:validate
 ```
 
-`bun run test:types` verifies the public TypeScript contract, including directional widening such as assigning `Signal<number>` where `Signal<number | boolean | string>` is expected. Its fixtures cover positive and negative container assignments, wide source writes, array/object projections, primitive unions, maybe-signal inputs, `compute`, `value`, `maybePlain`, `dispose`, `receive`, and `transmit`.
+`bun run test:types` verifies the public TypeScript contract, including directional widening such as assigning `Signal<number>` where `Signal<number | boolean | string>` is expected. Its fixtures cover positive and negative container assignments, wide source writes, array/object projections, nullable unions, maybe-signal inputs, `compute`, `value`, `nullable`, `dispose`, `receive`, and `transmit`.
 
 ### Documentation pipeline
 

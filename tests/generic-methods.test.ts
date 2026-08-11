@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { derive, maybePlain, signal } from "../src";
+import { derive, nullable, signal } from "../src";
 
 describe("generic methods", () => {
   describe("toString()", () => {
@@ -72,7 +72,7 @@ describe("generic methods", () => {
     });
   });
 
-  describe("is primitive comparisons", () => {
+  describe("is comparisons", () => {
     it("truthy() reports truthiness and reacts to source changes", () => {
       const input = signal("ready");
       const result = input.is.truthy();
@@ -141,7 +141,7 @@ describe("generic methods", () => {
     });
   });
 
-  describe("if primitive comparisons", () => {
+  describe("if comparisons", () => {
     it("truthy().then() reacts to the condition and signal options", () => {
       const input = signal(1);
       const truthyOption = signal("enabled");
@@ -377,9 +377,9 @@ describe("generic methods", () => {
   });
 });
 
-describe("maybePlain generic-method wrapper", () => {
-  it("adds generic methods to a plain maybePlain primitive", () => {
-    const wrapped = maybePlain<number | undefined>(undefined);
+describe("nullable generic-method wrapper", () => {
+  it("adds generic methods to a plain nullable value", () => {
+    const wrapped = nullable<number | undefined>(undefined);
 
     expect(wrapped.or(10).value).toBe(10);
     expect(wrapped.is.falsy().value).toBe(true);
@@ -390,12 +390,32 @@ describe("maybePlain generic-method wrapper", () => {
 
   it("keeps wrapped signal values reactive", () => {
     const input = signal<number | null>(null);
-    const wrapped = maybePlain(input);
+    const wrapped = nullable(input);
     const result = wrapped.if.truthy().then("present", "missing");
 
     expect(result.value).toBe("missing");
 
     input.value = 1;
     expect(result.value).toBe("present");
+  });
+
+  it("supports relational comparisons for dates and custom object coercion", () => {
+    const timestamp = signal(1_000);
+    const date = signal(new Date(2_000));
+    const rank = signal({ valueOf: () => 3 });
+    const dateResult = date.is.greaterThan(timestamp);
+    const rankResult = nullable(rank).if.smallerThan(4).then("low", "high");
+
+    expect(dateResult.value).toBe(true);
+    expect(rankResult.value).toBe("low");
+
+    timestamp.value = 2_500;
+    expect(dateResult.value).toBe(false);
+  });
+
+  it("propagates JavaScript relational comparison errors", () => {
+    const symbol = signal(Symbol("value"));
+
+    expect(() => symbol.is.greaterThan(1)).toThrow(TypeError);
   });
 });

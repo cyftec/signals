@@ -507,7 +507,7 @@
         "isExported": true,
         "exportKind": "named",
         "category": "core",
-        "signature": "export const getGenericMethods = <T>(\n  // generic methods are valid even for null or undefined\n  baseSignal: MaybeSignal<T>,\n): GenericMethods<T> => {\n  const valueGetter = () => value(baseSignal) as Primitive;\n  const lengthGetter = () => {\n    const val = value(baseSignal);\n    if (typeof val === \"string\" || Array.isArray(val)) return val.length;\n    return NaN;\n  };\n\n  return {\n    is: {\n      ...getComparisonMethods(valueGetter, false),\n      ...getLengthMethods(lengthGetter, false),\n    },\n    if: {\n      ...getComparisonMethods(valueGetter, true),\n      ...getLengthMethods(lengthGetter, true),\n    },\n    or: <A>(\n      alternativeValue: MaybeSignal<A>,\n    ): DerivedSignal<NonNullable<T> | A> => {\n      return derive(() => {\n        const altValue = value(alternativeValue);\n        return (value(baseSignal) || altValue) as NonNullable<T> | A;\n      });\n    },\n    toString: (): DerivedSignal<string> => {\n      return derive(() => {\n        const signalValue = value(baseSignal);\n        if (signalValue === null) return \"null\";\n        if (signalValue === undefined) return \"undefined\";\n        if (isPlainObject(signalValue)) return JSON.stringify(signalValue);\n        return signalValue.toString();\n      });\n    },\n  } as GenericMethods<T>;\n};",
+        "signature": "export const getGenericMethods = <T>(\n  // generic methods are valid even for null or undefined\n  baseSignal: MaybeSignal<T>,\n): GenericMethods<T> => {\n  const valueGetter = () => value(baseSignal);\n  const lengthGetter = () => {\n    const val = value(baseSignal);\n    if (typeof val === \"string\" || Array.isArray(val)) return val.length;\n    return NaN;\n  };\n\n  return {\n    is: {\n      ...getComparisonMethods(valueGetter, false),\n      ...getLengthMethods(lengthGetter, false),\n    },\n    if: {\n      ...getComparisonMethods(valueGetter, true),\n      ...getLengthMethods(lengthGetter, true),\n    },\n    or: <A>(\n      alternativeValue: MaybeSignal<A>,\n    ): DerivedSignal<NonNullable<T> | A> => {\n      return derive(() => {\n        const altValue = value(alternativeValue);\n        return (value(baseSignal) || altValue) as NonNullable<T> | A;\n      });\n    },\n    toString: (): DerivedSignal<string> => {\n      return derive(() => {\n        const signalValue = value(baseSignal);\n        if (signalValue === null) return \"null\";\n        if (signalValue === undefined) return \"undefined\";\n        if (isPlainObject(signalValue)) return JSON.stringify(signalValue);\n        return signalValue.toString();\n      });\n    },\n  } as GenericMethods<T>;\n};",
         "parameters": [
           {
             "name": "baseSignal",
@@ -522,7 +522,7 @@
           "title": "Creates logical methods for signals.",
           "summary": "Builds the `or`, `is`, `if`, and `toString()` method groups shared by supported signal\nvalues. Every comparison result is an eagerly maintained derived signal.",
           "remarks": [
-            "- `or()` selects its alternative for every JavaScript-falsy input value\n- `is` methods return boolean signals returned as derived signals\n- `if` methods return a `then()` selector for reactive conditional values\n- `toString()` renders nullish values explicitly, plain objects as JSON, and other values through JavaScript `toString()`\n- Length comparisons are exposed for strings and arrays\n- Measure comparisons are exposed for numbers\n- All inputs produce `DerivedSignal` results; inputs produce `DerivedSignal` results"
+            "- `or()` selects its alternative for every JavaScript-falsy input value\n- `is` methods return boolean signals returned as derived signals\n- `if` methods return a `then()` selector for reactive conditional values\n- `toString()` renders nullish values explicitly, plain objects as JSON, and other values through JavaScript `toString()`\n- Length comparisons are exposed for strings and arrays\n- Relational comparisons are exposed for every value type\n- All inputs produce `DerivedSignal` results; inputs produce `DerivedSignal` results"
           ],
           "examples": [
             "```typescript\nconst count = signal(5);\nconst logical = getGenericMethods<number>(count);\nlogical.is.truthy().value; // true\nlogical.is.greaterThan(3).value; // true\nlogical.if.greaterThan(10).then(\"big\", \"small\").value; // \"small\"\n```"
@@ -1434,18 +1434,18 @@
         "sourcePath": "src/api/operations/generic-operation.ts"
       },
       {
-        "name": "maybePlain",
+        "name": "nullable",
         "kind": "const",
-        "filePath": "src/api/maybe-plain.ts",
+        "filePath": "src/api/nullable.ts",
         "isCallable": true,
         "isExported": true,
         "exportKind": "named",
         "category": "api",
-        "signature": "export const maybePlain = <I extends MaybeSignal<unknown>>(\n  input: I &\n    (Extract<PlainValue<I>, Primitive> extends never ? never : unknown),\n): GenericMethods<PlainValue<I>> =>\n  getGenericMethods<PlainValue<I>>(input as MaybeSignal<PlainValue<I>>);",
+        "signature": "export const nullable = <I extends MaybeSignal<unknown>>(\n  input: I,\n): GenericMethods<PlainValue<I>> =>\n  getGenericMethods<PlainValue<I>>(input as MaybeSignal<PlainValue<I>>);",
         "parameters": [
           {
             "name": "input",
-            "type": "I &\n    (Extract<PlainValue<I>, Primitive> extends never ? never : unknown)",
+            "type": "I",
             "optional": false
           }
         ],
@@ -1453,18 +1453,18 @@
           "I"
         ],
         "tsdoc": {
-          "title": "Adds generic logical helpers to a plain or signal-wrapped primitive input.",
+          "title": "Adds generic helpers to any plain or signal-wrapped input.",
           "summary": "The wrapper exposes `or`, `is`, `if`, and `toString()` operations while preserving the\nderived result helpers for any accepted plain value or signal input.",
           "remarks": [
-            "- The type constraint rejects inputs with no primitive member.\n- `or` uses JavaScript truthiness, not only nullishness.\n- `toString()` produces an eagerly maintained string representation.\n- Comparisons accept signal-capable operands.\n- Result helpers are eagerly maintained derived signals, including for plain inputs."
+            "- `or` uses JavaScript truthiness, not only nullishness.\n- `toString()` produces an eagerly maintained string representation.\n- Comparisons accept any signal-capable operand and preserve JavaScript\n  coercion behavior for relational operators.\n- Result helpers are eagerly maintained derived signals, including for plain inputs."
           ],
           "examples": [
-            "```typescript\nconst count = signal<number | null>(null);\nconst label = maybePlain(count).if.falsy().then(\"missing\", \"present\");\ncount.value = 1;\nconsole.log(label.value); // \"present\"\n```"
+            "```typescript\nconst count = signal<number | null>(null);\nconst label = nullable(count).if.falsy().then(\"missing\", \"present\");\ncount.value = 1;\nconsole.log(label.value); // \"present\"\n```"
           ],
           "params": [
             {
               "name": "input",
-              "description": "A value whose plain type includes at least one primitive member."
+              "description": "A plain value or signal to wrap."
             }
           ],
           "returns": [
@@ -1483,7 +1483,7 @@
           ],
           "deprecated": []
         },
-        "sourcePath": "src/api/maybe-plain.ts"
+        "sourcePath": "src/api/nullable.ts"
       },
       {
         "name": "numberOp",
@@ -2528,7 +2528,7 @@
           "P"
         ],
         "tsdoc": {
-          "title": "Defines the fallback method available to supported primitive values.",
+          "title": "Defines the common methods available to every value type.",
           "summary": "The `or()` method selects an alternative for a falsy input and returns a\nsignal matching the derived result type.",
           "remarks": [
             "- The result excludes `null` and `undefined` from the original value branch\n- The alternative may itself be a signal"
@@ -2545,7 +2545,7 @@
           "template": [
             {
               "name": "P",
-              "description": "The primitive input value type"
+              "description": "The input value type"
             }
           ],
           "deprecated": []
@@ -2560,35 +2560,29 @@
         "isExported": true,
         "exportKind": "named",
         "category": "core",
-        "signature": "export type Comparison<\n  GenericMethodReturn extends GenericMethodReturnType,\n  P extends Primitive,\n> = ExistenceComparison<\n  GenericMethodReturn,\n  ComparisonReturnType<GenericMethodReturn>\n> &\n  (P extends number\n    ? MeasureComparison<\n        GenericMethodReturn,\n        ComparisonReturnType<GenericMethodReturn>\n      >\n    : {});",
+        "signature": "export type Comparison<\n  GenericMethodReturn extends GenericMethodReturnType,\n> = {\n  truthy: () => ComparisonReturnType<GenericMethodReturn>;\n  falsy: () => ComparisonReturnType<GenericMethodReturn>;\n  equalTo: (\n    compareValue: MaybeSignal<unknown>,\n  ) => ComparisonReturnType<GenericMethodReturn>;\n  notEqualTo: (\n    compareValue: MaybeSignal<unknown>,\n  ) => ComparisonReturnType<GenericMethodReturn>;\n  greaterThan: (\n    compareValue: MaybeSignal<unknown>,\n  ) => ComparisonReturnType<GenericMethodReturn>;\n  greaterThanOrEqualTo: (\n    compareValue: MaybeSignal<unknown>,\n  ) => ComparisonReturnType<GenericMethodReturn>;\n  smallerThan: (\n    compareValue: MaybeSignal<unknown>,\n  ) => ComparisonReturnType<GenericMethodReturn>;\n  smallerThanOrEqualTo: (\n    compareValue: MaybeSignal<unknown>,\n  ) => ComparisonReturnType<GenericMethodReturn>;\n};",
         "parameters": [],
         "typeParameters": [
-          "GenericMethodReturn",
-          "P"
+          "GenericMethodReturn"
         ],
         "tsdoc": {
-          "title": "Composes the comparison methods available to a primitive value.",
-          "summary": "Always includes truthiness and equality checks and conditionally includes\nordered comparisons when the value type is numeric.",
+          "title": "Defines the universal JavaScript comparison surface.",
+          "summary": "Supplies truthiness, strict-equality, and relational comparisons with a\nshared result type for every input and operand type.",
           "remarks": [
-            "- Non-number primitives do not expose measure comparisons at the type level"
+            "- Equality methods use strict JavaScript equality semantics.\n- Relational methods preserve JavaScript's native primitive-coercion rules.\n- Symbols can cause relational methods to throw a `TypeError`, just as the\n  corresponding JavaScript operator would."
           ],
           "examples": [
-            "```typescript\ndeclare const checks: Comparison<\"deriver\", number>;\nchecks.equalTo(1);\nchecks.greaterThan(0);\n```"
+            "```typescript\ndeclare const checks: Comparison<\"deriver\">;\nchecks.greaterThan(new Date());\n```"
           ],
           "params": [],
           "returns": [],
           "see": [
-            "{@link ExistenceComparison} - The always-present comparison group",
-            "{@link MeasureComparison} - The number-only comparison group"
+            "{@link ComparisonReturnType} - Resolves direct and ternary results."
           ],
           "template": [
             {
               "name": "GenericMethodReturn",
               "description": "Whether methods return signals or ternary continuations"
-            },
-            {
-              "name": "P",
-              "description": "The primitive value type being compared"
             }
           ],
           "deprecated": []
@@ -2741,49 +2735,6 @@
         "sourcePath": "src/_core/derived-signal.ts"
       },
       {
-        "name": "ExistenceComparison",
-        "kind": "type",
-        "filePath": "src/_core/data-specific-methods/types.ts",
-        "isCallable": false,
-        "isExported": true,
-        "exportKind": "named",
-        "category": "core",
-        "signature": "export type ExistenceComparison<\n  GenericMethodReturn extends GenericMethodReturnType,\n  R extends ComparisonReturnType<GenericMethodReturn>,\n> = {\n  truthy: () => R;\n  falsy: () => R;\n  equalTo: (compareValue: MaybeSignal<unknown>) => R;\n  notEqualTo: (compareValue: MaybeSignal<unknown>) => R;\n};",
-        "parameters": [],
-        "typeParameters": [
-          "GenericMethodReturn",
-          "R"
-        ],
-        "tsdoc": {
-          "title": "Defines truthiness and strict-equality comparisons.",
-          "summary": "Supplies `truthy()`, `falsy()`, `equalTo()`, and `notEqualTo()` with a shared\ncomparison result type.",
-          "remarks": [
-            "- Equality methods use strict JavaScript equality semantics"
-          ],
-          "examples": [
-            "```typescript\ndeclare const checks: ExistenceComparison<\n  \"deriver\",\n  DerivedSignal<boolean>\n>;\nconst present = checks.truthy();\n```"
-          ],
-          "params": [],
-          "returns": [],
-          "see": [
-            "{@link Comparison} - For the complete comparison surface",
-            "{@link MeasureComparison} - For ordered numeric comparisons"
-          ],
-          "template": [
-            {
-              "name": "GenericMethodReturn",
-              "description": "Whether methods return signals or ternary continuations"
-            },
-            {
-              "name": "R",
-              "description": "The resolved comparison result type"
-            }
-          ],
-          "deprecated": []
-        },
-        "sourcePath": "src/_core/data-specific-methods/types.ts"
-      },
-      {
         "name": "GenericMethodReturnType",
         "kind": "type",
         "filePath": "src/_core/data-specific-methods/types.ts",
@@ -2822,16 +2773,16 @@
         "isExported": true,
         "exportKind": "named",
         "category": "core",
-        "signature": "export type GenericMethods<T> = [\n  true,\n] extends [IsExactlyAny<T>]\n  ? CommonGenericMethods<any> & IsAndIfComparison<any>\n  : [true] extends [IsExactly<T, Record<string, any>>]\n    ? CommonGenericMethods<T>\n    : CommonGenericMethods<T> & IsAndIfComparison<T>;",
+        "signature": "export type GenericMethods<T> = CommonGenericMethods<T> &\n  IsAndIfComparison<T>;",
         "parameters": [],
         "typeParameters": [
           "T"
         ],
         "tsdoc": {
           "title": "Selects the generic logical methods available to a value type.",
-          "summary": "Combines fallback, direct comparison, and ternary comparison surfaces based\non the input's primitive, string, array, or object shape.",
+          "summary": "Combines common, direct comparison, and ternary comparison surfaces for any\ninput value type.",
           "remarks": [
-            "- Every supported value type receives `or()` and `toString()`\n- Primitive-containing types also receive `is` and `if`\n- Array-only types receive length-based `is` and `if` groups"
+            "- Every value type receives `or()`, `toString()`, `is`, and `if`\n- Strings and arrays also receive length-based `is` and `if` groups"
           ],
           "examples": [
             "```typescript\ndeclare const methods: GenericMethods<number>;\nconst positive = methods.is.greaterThan(0);\n```"
@@ -2853,44 +2804,6 @@
         "sourcePath": "src/_core/data-specific-methods/types.ts"
       },
       {
-        "name": "HasPrimitive",
-        "kind": "type",
-        "filePath": "src/_core/data-specific-methods/types.ts",
-        "isCallable": false,
-        "isExported": true,
-        "exportKind": "named",
-        "category": "core",
-        "signature": "export type HasPrimitive<T> =\n  Extract<T, Primitive> extends never ? never : true;",
-        "parameters": [],
-        "typeParameters": [
-          "T"
-        ],
-        "tsdoc": {
-          "title": "Determines whether a type contains at least one supported primitive member.",
-          "summary": "Produces `true` when extracting `Primitive` from `T` is non-empty and `never`\notherwise.",
-          "remarks": [
-            "- Union inputs succeed when any member belongs to `Primitive`"
-          ],
-          "examples": [
-            "```typescript\ntype NullableString = HasPrimitive<string | null>; // true\ntype RecordOnly = HasPrimitive<{ value: string }>; // never\n```"
-          ],
-          "params": [],
-          "returns": [],
-          "see": [
-            "{@link Primitive} - The primitive union being extracted",
-            "{@link GenericMethods} - Where this predicate enables logical methods"
-          ],
-          "template": [
-            {
-              "name": "T",
-              "description": "The type to inspect"
-            }
-          ],
-          "deprecated": []
-        },
-        "sourcePath": "src/_core/data-specific-methods/types.ts"
-      },
-      {
         "name": "IsAndIfComparison",
         "kind": "type",
         "filePath": "src/_core/data-specific-methods/types.ts",
@@ -2898,16 +2811,16 @@
         "isExported": true,
         "exportKind": "named",
         "category": "core",
-        "signature": "export type IsAndIfComparison<T> = {\n  is: ([T] extends [Primitive] ? Comparison<\"deriver\", T> : {}) &\n    ([string] extends [T]\n      ? LengthComparison<\"deriver\">\n      : [any[]] extends [T]\n        ? LengthComparison<\"deriver\">\n        : {});\n  if: ([T] extends [Primitive] ? Comparison<\"ternary\", T> : {}) &\n    ([string] extends [T]\n      ? LengthComparison<\"ternary\">\n      : [any[]] extends [T]\n        ? LengthComparison<\"ternary\">\n        : {});\n};",
+        "signature": "export type IsAndIfComparison<T> = {\n  is: Comparison<\"deriver\"> &\n    ([true] extends [IsExactlyAny<T>]\n      ? {}\n      : [T] extends [string | readonly unknown[]]\n        ? LengthComparison<\"deriver\">\n        : {});\n  if: Comparison<\"ternary\"> &\n    ([true] extends [IsExactlyAny<T>]\n      ? {}\n      : [T] extends [string | readonly unknown[]]\n        ? LengthComparison<\"ternary\">\n        : {});\n};",
         "parameters": [],
         "typeParameters": [
           "T"
         ],
         "tsdoc": {
-          "title": "Defines direct and ternary comparison groups for a supported value.",
+          "title": "Defines direct and ternary comparison groups for every value.",
           "summary": "The `is` group returns direct result signals, while the `if` group returns\n`then()` continuations. Length groups are added for strings and arrays.",
           "remarks": [
-            "- Numeric primitives include ordered comparisons\n- Strings and arrays include nested `length` comparisons"
+            "- Every value type includes truthiness, equality, and ordered comparisons\n- Strings and arrays include nested `length` comparisons"
           ],
           "examples": [
             "```typescript\ndeclare const methods: IsAndIfComparison<string>;\nconst nonEmpty = methods.is.length.truthy();\nconst label = methods.if.truthy().then(\"yes\", \"no\");\n```"
@@ -2915,13 +2828,13 @@
           "params": [],
           "returns": [],
           "see": [
-            "{@link Comparison} - The primitive comparison group",
+            "{@link Comparison} - The universal comparison group",
             "{@link LengthComparison} - The string and array length group"
           ],
           "template": [
             {
               "name": "T",
-              "description": "The primitive or array value type"
+              "description": "The value type used to conditionally expose length methods"
             }
           ],
           "deprecated": []
@@ -3111,8 +3024,7 @@
           "params": [],
           "returns": [],
           "see": [
-            "{@link IsExactly} - For exact bidirectional comparison",
-            "{@link HasPrimitive} - For primitive-member detection"
+            "{@link IsExactly} - For exact bidirectional comparison"
           ],
           "template": [
             {
@@ -3136,7 +3048,7 @@
         "isExported": true,
         "exportKind": "named",
         "category": "core",
-        "signature": "export type LengthComparison<\n  GenericMethodReturn extends GenericMethodReturnType,\n> = {\n  length: Comparison<GenericMethodReturn, number>;\n};",
+        "signature": "export type LengthComparison<\n  GenericMethodReturn extends GenericMethodReturnType,\n> = {\n  length: Comparison<GenericMethodReturn>;\n};",
         "parameters": [],
         "typeParameters": [
           "GenericMethodReturn"
@@ -3243,49 +3155,6 @@
         "sourcePath": "src/_core/_types.ts"
       },
       {
-        "name": "MeasureComparison",
-        "kind": "type",
-        "filePath": "src/_core/data-specific-methods/types.ts",
-        "isCallable": false,
-        "isExported": true,
-        "exportKind": "named",
-        "category": "core",
-        "signature": "export type MeasureComparison<\n  GenericMethodReturn extends GenericMethodReturnType,\n  R extends ComparisonReturnType<GenericMethodReturn>,\n> = {\n  greaterThan: (compareValue: MaybeSignal<number>) => R;\n  greaterThanOrEqualTo: (compareValue: MaybeSignal<number>) => R;\n  smallerThan: (compareValue: MaybeSignal<number>) => R;\n  smallerThanOrEqualTo: (compareValue: MaybeSignal<number>) => R;\n};",
-        "parameters": [],
-        "typeParameters": [
-          "GenericMethodReturn",
-          "R"
-        ],
-        "tsdoc": {
-          "title": "Defines ordered numeric comparisons.",
-          "summary": "Supplies strict and inclusive greater-than and smaller-than methods with a\nshared comparison result type.",
-          "remarks": [
-            "- Comparison operands may be signals"
-          ],
-          "examples": [
-            "```typescript\ndeclare const checks: MeasureComparison<\n  \"deriver\",\n  DerivedSignal<boolean>\n>;\nconst positive = checks.greaterThan(0);\n```"
-          ],
-          "params": [],
-          "returns": [],
-          "see": [
-            "{@link Comparison} - For the primitive comparison composition",
-            "{@link ExistenceComparison} - For truthiness and equality checks"
-          ],
-          "template": [
-            {
-              "name": "GenericMethodReturn",
-              "description": "Whether methods return signals or ternary continuations"
-            },
-            {
-              "name": "R",
-              "description": "The resolved comparison result type"
-            }
-          ],
-          "deprecated": []
-        },
-        "sourcePath": "src/_core/data-specific-methods/types.ts"
-      },
-      {
         "name": "MutatingAndNonMutatingMethods",
         "kind": "type",
         "filePath": "src/_core/data-specific-methods/types.ts",
@@ -3387,7 +3256,7 @@
           "returns": [],
           "see": [
             "{@link Signal} - Signal kinds preserved by this transformation.",
-            "{@link maybePlain} - Adds generic helpers to maybe-plain primitive inputs."
+            "{@link nullable} - Adds generic helpers to plain or signal inputs."
           ],
           "template": [
             {
@@ -3681,37 +3550,6 @@
           "deprecated": []
         },
         "sourcePath": "src/_core/_types.ts"
-      },
-      {
-        "name": "Primitive",
-        "kind": "type",
-        "filePath": "src/_core/data-specific-methods/types.ts",
-        "isCallable": false,
-        "isExported": true,
-        "exportKind": "named",
-        "category": "core",
-        "signature": "export type Primitive = string | number | bigint | boolean | null | undefined;",
-        "parameters": [],
-        "typeParameters": [],
-        "tsdoc": {
-          "title": "Represents the primitive values supported by generic logical methods.",
-          "summary": "Includes strings, numbers, bigints, booleans, `null`, and `undefined`.",
-          "remarks": [
-            "- Objects, functions, symbols, and arrays are not members of this union"
-          ],
-          "examples": [
-            "```typescript\nconst value: Primitive = null;\n```"
-          ],
-          "params": [],
-          "returns": [],
-          "see": [
-            "{@link HasPrimitive} - For detecting members of this union",
-            "{@link GenericMethods} - For the methods selected from primitive values"
-          ],
-          "template": [],
-          "deprecated": []
-        },
-        "sourcePath": "src/_core/data-specific-methods/types.ts"
       },
       {
         "name": "Receiver",
