@@ -1,6 +1,6 @@
 # @cyftec/signals — Project and Contributor Guide
 
-`@cyftec/signals` is a TypeScript signal library with mutable source values, eagerly maintained derived values, synchronous effects, and data-specific helpers. This is the repository's canonical technical reference: it combines the behavioral contract, API inventory, architecture notes, type contract, and contributor instructions. `README.md` is the permanent GitHub-facing quick guide; community policies and contribution templates live in their conventional repository locations.
+`@cyftec/signals` is a TypeScript signal library with mutable source values, eagerly maintained derived values, synchronous effects, data-specific helpers, and lazy operation chains. This is the repository's canonical technical reference: it combines the behavioral contract, API inventory, architecture notes, type contract, and contributor instructions. `README.md` is the permanent GitHub-facing quick guide; community policies and contribution templates live in their conventional repository locations.
 
 ## Contents
 
@@ -21,7 +21,7 @@ bun add @cyftec/signals
 ```
 
 ```ts
-import { deadZone, derive, effect, signal } from "@cyftec/signals";
+import { deadZone, derive, effect, op, signal } from "@cyftec/signals";
 
 const count = signal(1);
 const doubled = derive(() => count.value * 2);
@@ -39,6 +39,14 @@ count.value = 2;
 `deadZone(callback)` evaluates a callback without recording its signal reads for the effect currently being installed. `nonReactiveValue` offers the same non-collecting read for one source or derived signal.
 
 `derive()` computes immediately, stores its result, and recomputes synchronously when a source read during its initial computation changes. Its `.value` and `.nonReactiveValue` getters read the stored result; they do not invoke the catcher. `prevValue` exposes the preceding stored result and `dispose()` stops future recomputation.
+
+`op()` composes generic logical, number, or string/array-length operations without creating a signal until a terminal getter (`result`, `truthy`, `falsy`, or `truthyFalsyPair`) or `then()` is used. The terminal is an eagerly maintained `DerivedSignal` with the same fixed initial-dependency rules as `derive()`:
+
+```ts
+const count = signal(5);
+const label = op(count).add(3).isGT(7).then("large", "small");
+console.log(label.value); // "large"
+```
 
 Source signals receive generic logical helpers and a data-method family chosen from the initial value (or an optional non-null hint):
 
@@ -59,7 +67,7 @@ console.log(text.trim().value); // "hello"
 
 Arrays, plain objects, strings, numbers, and source booleans receive their respective helpers. Mutators exist only on source signals under `.mutate`; projections return eagerly maintained `DerivedSignal` values.
 
-Main exports are `signal`, `derive`, `effect`, `deadZone`, `dispose`, `compute`, `tmpl`, `receive`, `transmit`, `promstates`, `maybePlain`, `value`, `getPlainMethodParams`, and the runtime signal guards.
+Main exports are `signal`, `derive`, `effect`, `deadZone`, `dispose`, `compute`, `tmpl`, `receive`, `transmit`, `promstates`, `maybePlain`, `op`, `value`, `getPlainMethodParams`, and the runtime signal guards.
 
 ## Semantic contract
 
@@ -137,13 +145,14 @@ Source mutators publish through normal source assignment. Every read-only helper
 
 ### Generic helpers
 
-`or`, `is`, and `if` are attached to every source and derived signal.
+`or`, `is`, `if`, and `toString()` are attached to every source and derived signal.
 
 - `or(alternative)` uses JavaScript `||`; every falsy value selects the alternative.
 - `is` provides truthiness and strict-equality comparisons.
 - Number values also provide strict and inclusive measure comparisons.
 - Strings and arrays provide those comparisons under `.is.length` and `.if.length`.
 - `if.*` returns `.then(truthyOption, falsyOption)`; both options are read during each computation before the selected option is returned.
+- `toString()` returns an eagerly maintained `DerivedSignal<string>`. It renders `null` as `"null"`, `undefined` as `"undefined"`, plain objects with `JSON.stringify`, and every other value with its JavaScript `toString()` method.
 - `maybePlain(input)` exposes this generic surface for a plain or signal input type with a primitive member.
 
 ### Convenience APIs
@@ -151,6 +160,8 @@ Source mutators publish through normal source assignment. Every read-only helper
 `compute(fn, ...args)` returns an eagerly maintained derived value. It unwraps each argument with `value()` and calls `fn` immediately, then repeats when captured signal arguments change.
 
 `tmpl` returns an eagerly maintained derived string. It evaluates functions, reads signals, renders nullish expressions as `""`, and stringifies every other expression during initial computation and captured updates.
+
+`op(input)` selects its chain family once from the initial evaluated input: numbers have arithmetic and numeric comparisons; strings and arrays, including readonly arrays, have length comparisons; all values have generic logical operations. Passing a zero-argument function evaluates it once to select that family. Chain calls are lazy, but each terminal getter or `then()` constructs a distinct eager derived signal. As with every derived signal, sources skipped by JavaScript short-circuiting or an unselected `then()` branch on the terminal's initial evaluation are not later added as dependencies.
 
 `receive(receiver, ...transmitters)` creates one immediate effect per transmitter. `transmit(transmitter, ...receivers)` creates one immediate effect for all receivers. Signal transmitters remain connected until their returned receiver is disposed; plain transmitters only make their immediate assignment. Multiple connector effects run in registration order.
 
@@ -265,6 +276,7 @@ Every source and derived signal receives:
 
 ```ts
 input.or(alternative);
+input.toString();
 input.is.truthy();
 input.is.falsy();
 input.is.equalTo(other);
@@ -293,6 +305,21 @@ const text = tmpl`Hello ${name}; count: ${count}`;
 ```
 
 Returns an eagerly maintained derived string. Expressions may be plain values, signals, or zero-argument functions; nullish expressions render as empty strings.
+
+#### `op`
+
+```ts
+const total = op(count).add(2).mul(3).result;
+const visible = op(text).lengthGT(0).truthy;
+const label = op(enabled).then("shown", "hidden");
+```
+
+Builds a lazy operation chain from a signal-capable value or zero-argument evaluator. `result`, `truthy`, `falsy`, `truthyFalsyPair`, and `then()` are terminals that each create a new eagerly maintained `DerivedSignal`.
+
+- Every chain supports `or`, `orNot`, `and`, `andNot`, strict `equals`/`notEquals`, and the `orBoth*`, `andBoth*`, `orThisIs*`, and `andThisIs*` comparison combinations.
+- Number chains add `add`, `sub`, `mul`, `div`, `mod`, `pow`, `isBetween`, `isLT`, `isLTE`, `isGT`, and `isGTE`.
+- String and array chains add `lengthBetween`, `lengthEquals`, `lengthNotEquals`, `lengthLT`, `lengthLTE`, `lengthGT`, and `lengthGTE`.
+- The selected family is based on the initial evaluated value and does not change after later assignments with a different runtime type. `isBetween` and `lengthBetween` include both bounds by default; their lower and upper inclusivity can be configured independently.
 
 #### `receive` and `transmit`
 
@@ -392,13 +419,14 @@ The derived `nonReactiveValue` getter reads the backing source's stored result d
 
 `getNonMutatingDataMethods` and `getMutatingAndNonMutatingDataMethods` select a family in this order: array, plain object, string, number, boolean for source methods only, or no data-specific methods. Arrays precede objects because arrays are objects. Family functions wrap native operations in either `mutateWith` or eager `derive`; `getPlainMethodParams` unwraps signal-capable arguments during every computation.
 
-`getGenericMethods` supplies `or` using JavaScript `||`, `is` comparison projections, and `if` comparison selectors.
+`getGenericMethods` supplies `or` using JavaScript `||`, `is` comparison projections, `if` comparison selectors, and an eagerly maintained `toString()` projection. It renders nullish values explicitly, serializes plain objects with `JSON.stringify`, and otherwise delegates to the current value's JavaScript `toString()` method.
 
 ### API composition
 
 - `compute` maps signal-capable arguments through `value` inside an eager derived computation before calling its function.
 - `receive` and `transmit` compose immediate effects to copy values.
 - `maybePlain` exposes generic helpers for a plain or signal primitive input.
+- `op` selects a lazy generic, numeric, or string-and-array evaluator from an initial value. Its terminal values use `derive`, so they are eager once created and retain only sources read on their first evaluation.
 - `promstates` stores promise state in one object source signal and returns property projections.
 - `tmpl` is a derived tagged-template evaluator.
 - `value` unwraps only recognized outer signals.

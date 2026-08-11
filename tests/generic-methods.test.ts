@@ -2,6 +2,49 @@ import { describe, expect, it } from "bun:test";
 import { derive, maybePlain, signal } from "../src";
 
 describe("generic methods", () => {
+  describe("toString()", () => {
+    it("serializes nullish, primitive, array, and plain-object values reactively", () => {
+      const nullable = signal<string | null>(null, "");
+      const undefinedValue = signal<undefined>(undefined);
+      const number = signal(12);
+      const items = signal([1, 2]);
+      const object = signal({ name: "Ada", active: true });
+
+      const nullableText = nullable.toString();
+      const undefinedText = undefinedValue.toString();
+      const numberText = number.toString();
+      const itemsText = items.toString();
+      const objectText = object.toString();
+
+      expect(nullableText.value).toBe("null");
+      expect(undefinedText.value).toBe("undefined");
+      expect(numberText.value).toBe("12");
+      expect(itemsText.value).toBe("1,2");
+      expect(objectText.value).toBe('{"name":"Ada","active":true}');
+
+      nullable.value = "ready";
+      number.value = 7;
+      items.value = [3];
+      object.value = { name: "Grace", active: false };
+
+      expect(nullableText.value).toBe("ready");
+      expect(numberText.value).toBe("7");
+      expect(itemsText.value).toBe("3");
+      expect(objectText.value).toBe('{"name":"Grace","active":false}');
+    });
+
+    it("works on derived plain-object values", () => {
+      const name = signal("Ada");
+      const user = derive(() => ({ name: name.value }));
+      const text = user.toString();
+
+      expect(text.value).toBe('{"name":"Ada"}');
+
+      name.value = "Grace";
+      expect(text.value).toBe('{"name":"Grace"}');
+    });
+  });
+
   describe("or()", () => {
     it("uses the alternative for every JavaScript-falsy value and stays reactive", () => {
       const stringAlternative = signal("fallback");

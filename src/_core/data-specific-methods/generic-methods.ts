@@ -1,3 +1,4 @@
+import { isPlainObject } from "@cyftec/immut";
 import { value } from "../../utils";
 import { MaybeSignal } from "../_types";
 import { derive, DerivedSignal } from "../derived-signal";
@@ -220,7 +221,7 @@ const getLengthMethods = <GenericMethodReturn extends GenericMethodReturnType>(
 /**
  * Creates logical methods for signals.
  *
- * Builds the `or`, `is`, and `if` method groups shared by supported signal
+ * Builds the `or`, `is`, `if`, and `toString()` method groups shared by supported signal
  * values. Every comparison result is an eagerly maintained derived signal.
  *
  * @template T - The value type exposed by the input
@@ -231,6 +232,7 @@ const getLengthMethods = <GenericMethodReturn extends GenericMethodReturnType>(
  * - `or()` selects its alternative for every JavaScript-falsy input value
  * - `is` methods return boolean signals returned as derived signals
  * - `if` methods return a `then()` selector for reactive conditional values
+ * - `toString()` renders nullish values explicitly, plain objects as JSON, and other values through JavaScript `toString()`
  * - Length comparisons are exposed for strings and arrays
  * - Measure comparisons are exposed for numbers
  * - All inputs produce `DerivedSignal` results; inputs produce `DerivedSignal` results
@@ -259,14 +261,6 @@ export const getGenericMethods = <T>(
   };
 
   return {
-    or: <A>(
-      alternativeValue: MaybeSignal<A>,
-    ): DerivedSignal<NonNullable<T> | A> => {
-      return derive(() => {
-        const altValue = value(alternativeValue);
-        return (value(baseSignal) || altValue) as NonNullable<T> | A;
-      });
-    },
     is: {
       ...getComparisonMethods(valueGetter, false),
       ...getLengthMethods(lengthGetter, false),
@@ -275,5 +269,22 @@ export const getGenericMethods = <T>(
       ...getComparisonMethods(valueGetter, true),
       ...getLengthMethods(lengthGetter, true),
     },
-  } as unknown as GenericMethods<T>;
+    or: <A>(
+      alternativeValue: MaybeSignal<A>,
+    ): DerivedSignal<NonNullable<T> | A> => {
+      return derive(() => {
+        const altValue = value(alternativeValue);
+        return (value(baseSignal) || altValue) as NonNullable<T> | A;
+      });
+    },
+    toString: (): DerivedSignal<string> => {
+      return derive(() => {
+        const signalValue = value(baseSignal);
+        if (signalValue === null) return "null";
+        if (signalValue === undefined) return "undefined";
+        if (isPlainObject(signalValue)) return JSON.stringify(signalValue);
+        return signalValue.toString();
+      });
+    },
+  } as GenericMethods<T>;
 };

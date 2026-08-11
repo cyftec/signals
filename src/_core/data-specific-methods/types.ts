@@ -245,19 +245,19 @@ export type GenericMethodReturnType = "ternary" | "deriver";
  *
  * @example
  * ```typescript
- * declare const methods: LogicalOrAlternative<string | undefined>;
+ * declare const methods: CommonGenericMethods<string | undefined>;
  * const text = methods.or("fallback"); // DerivedSignal<string>
  * ```
  *
  * @see {@link GenericMethods} - The conditional method surface containing `or()`
  * @see {@link DerivedSignal} - The result returned by or().
  */
-export type LogicalOrAlternative<
-  P extends Primitive,
-> = {
+export type CommonGenericMethods<P> = {
   or: <U>(
     alternativeValue: MaybeSignal<U>,
   ) => DerivedSignal<NonNullable<P> | U>;
+  /** Returns an eagerly maintained string representation of the value. */
+  toString: () => DerivedSignal<string>;
 };
 
 /**
@@ -463,9 +463,7 @@ export type LengthComparison<
  * @see {@link Comparison} - The primitive comparison group
  * @see {@link LengthComparison} - The string and array length group
  */
-export type IsAndIfComparison<
-  T extends Primitive | any[],
-> = {
+export type IsAndIfComparison<T> = {
   is: ([T] extends [Primitive] ? Comparison<"deriver", T> : {}) &
     ([string] extends [T]
       ? LengthComparison<"deriver">
@@ -489,8 +487,8 @@ export type IsAndIfComparison<
  * @template T - The input value type
  *
  * @remarks
- * - Exact record types receive no generic methods
- * - Primitive-containing types receive `or`, `is`, and `if`
+ * - Every supported value type receives `or()` and `toString()`
+ * - Primitive-containing types also receive `is` and `if`
  * - Array-only types receive length-based `is` and `if` groups
  *
  * @example
@@ -499,19 +497,16 @@ export type IsAndIfComparison<
  * const positive = methods.is.greaterThan(0);
  * ```
  *
- * @see {@link LogicalOrAlternative} - The fallback surface
+ * @see {@link CommonGenericMethods} - The fallback surface
  * @see {@link IsAndIfComparison} - The comparison surfaces
  */
-export type GenericMethods<   T> = [
+export type GenericMethods<T> = [
   true,
 ] extends [IsExactlyAny<T>]
-  ? IsAndIfComparison<any[]>
+  ? CommonGenericMethods<any> & IsAndIfComparison<any>
   : [true] extends [IsExactly<T, Record<string, any>>]
-    ? {}
-    : [true] extends [HasPrimitive<T>]
-      ? LogicalOrAlternative<Extract<T, Primitive>> &
-          IsAndIfComparison<Extract<T, Primitive>>
-      : IsAndIfComparison<any[]>;
+    ? CommonGenericMethods<T>
+    : CommonGenericMethods<T> & IsAndIfComparison<T>;
 
 /**
  * Intrinsic mutating methods for array signals.

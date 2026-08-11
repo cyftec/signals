@@ -1,3 +1,4 @@
+export * from "./operations";
 export * from "./compute";
 export * from "./connectors";
 export * from "./dispose";

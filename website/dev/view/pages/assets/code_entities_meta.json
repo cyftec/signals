@@ -507,7 +507,7 @@
         "isExported": true,
         "exportKind": "named",
         "category": "core",
-        "signature": "export const getGenericMethods = <T>(\n  // generic methods are valid even for null or undefined\n  baseSignal: MaybeSignal<T>,\n): GenericMethods<T> => {\n  const valueGetter = () => value(baseSignal) as Primitive;\n  const lengthGetter = () => {\n    const val = value(baseSignal);\n    if (typeof val === \"string\" || Array.isArray(val)) return val.length;\n    return NaN;\n  };\n\n  return {\n    or: <A>(\n      alternativeValue: MaybeSignal<A>,\n    ): DerivedSignal<NonNullable<T> | A> => {\n      return derive(() => {\n        const altValue = value(alternativeValue);\n        return (value(baseSignal) || altValue) as NonNullable<T> | A;\n      });\n    },\n    is: {\n      ...getComparisonMethods(valueGetter, false),\n      ...getLengthMethods(lengthGetter, false),\n    },\n    if: {\n      ...getComparisonMethods(valueGetter, true),\n      ...getLengthMethods(lengthGetter, true),\n    },\n  } as unknown as GenericMethods<T>;\n};",
+        "signature": "export const getGenericMethods = <T>(\n  // generic methods are valid even for null or undefined\n  baseSignal: MaybeSignal<T>,\n): GenericMethods<T> => {\n  const valueGetter = () => value(baseSignal) as Primitive;\n  const lengthGetter = () => {\n    const val = value(baseSignal);\n    if (typeof val === \"string\" || Array.isArray(val)) return val.length;\n    return NaN;\n  };\n\n  return {\n    is: {\n      ...getComparisonMethods(valueGetter, false),\n      ...getLengthMethods(lengthGetter, false),\n    },\n    if: {\n      ...getComparisonMethods(valueGetter, true),\n      ...getLengthMethods(lengthGetter, true),\n    },\n    or: <A>(\n      alternativeValue: MaybeSignal<A>,\n    ): DerivedSignal<NonNullable<T> | A> => {\n      return derive(() => {\n        const altValue = value(alternativeValue);\n        return (value(baseSignal) || altValue) as NonNullable<T> | A;\n      });\n    },\n    toString: (): DerivedSignal<string> => {\n      return derive(() => {\n        const signalValue = value(baseSignal);\n        if (signalValue === null) return \"null\";\n        if (signalValue === undefined) return \"undefined\";\n        if (isPlainObject(signalValue)) return JSON.stringify(signalValue);\n        return signalValue.toString();\n      });\n    },\n  } as GenericMethods<T>;\n};",
         "parameters": [
           {
             "name": "baseSignal",
@@ -520,9 +520,9 @@
         ],
         "tsdoc": {
           "title": "Creates logical methods for signals.",
-          "summary": "Builds the `or`, `is`, and `if` method groups shared by supported signal\nvalues. Every comparison result is an eagerly maintained derived signal.",
+          "summary": "Builds the `or`, `is`, `if`, and `toString()` method groups shared by supported signal\nvalues. Every comparison result is an eagerly maintained derived signal.",
           "remarks": [
-            "- `or()` selects its alternative for every JavaScript-falsy input value\n- `is` methods return boolean signals returned as derived signals\n- `if` methods return a `then()` selector for reactive conditional values\n- Length comparisons are exposed for strings and arrays\n- Measure comparisons are exposed for numbers\n- All inputs produce `DerivedSignal` results; inputs produce `DerivedSignal` results"
+            "- `or()` selects its alternative for every JavaScript-falsy input value\n- `is` methods return boolean signals returned as derived signals\n- `if` methods return a `then()` selector for reactive conditional values\n- `toString()` renders nullish values explicitly, plain objects as JSON, and other values through JavaScript `toString()`\n- Length comparisons are exposed for strings and arrays\n- Measure comparisons are exposed for numbers\n- All inputs produce `DerivedSignal` results; inputs produce `DerivedSignal` results"
           ],
           "examples": [
             "```typescript\nconst count = signal(5);\nconst logical = getGenericMethods<number>(count);\nlogical.is.truthy().value; // true\nlogical.is.greaterThan(3).value; // true\nlogical.if.greaterThan(10).then(\"big\", \"small\").value; // \"small\"\n```"
@@ -1382,6 +1382,58 @@
         "sourcePath": "src/api/dispose.ts"
       },
       {
+        "name": "genericOp",
+        "kind": "const",
+        "filePath": "src/api/operations/generic-operation.ts",
+        "isCallable": true,
+        "isExported": true,
+        "exportKind": "named",
+        "category": "api",
+        "signature": "export const genericOp = <T>(\n  input: MaybeSignal<T> | (() => T),\n): GenericOperation => {\n  const evaluator: () => T =\n    typeof input === \"function\"\n      ? (input as () => T)\n      : (): T => value(input as MaybeSignal<T>);\n\n  const opResultGetters: OperationResult = {\n    get result() {\n      return derive<unknown>(() => evaluator());\n    },\n    get truthy() {\n      return derive(() => !!evaluator());\n    },\n    get falsy() {\n      return derive(() => !evaluator());\n    },\n    get truthyFalsyPair() {\n      return derive(() => {\n        const truthyVal = !!evaluator();\n        const pair = [truthyVal, !truthyVal] as const;\n        return pair;\n      });\n    },\n    then: <Tr, Fl>(\n      valueIfTruthy: MaybeSignal<Tr>,\n      valueIfFalsy: MaybeSignal<Fl>,\n    ) =>\n      derive(() => {\n        const val = evaluator();\n        return val ? value(valueIfTruthy) : value(valueIfFalsy);\n      }),\n  };\n\n  return {\n    ...opResultGetters,\n    or: (checkValue: MaybeSignal<any>) =>\n      genericOp(() => {\n        const val = evaluator();\n        return val || value(checkValue);\n      }),\n    orNot: (checkValue: MaybeSignal<any>) =>\n      genericOp(() => {\n        const val = evaluator();\n        return val || !value(checkValue);\n      }),\n    and: (checkValue: MaybeSignal<any>) =>\n      genericOp(() => {\n        const val = evaluator();\n        return val && value(checkValue);\n      }),\n    andNot: (checkValue: MaybeSignal<any>) =>\n      genericOp(() => {\n        const val = evaluator();\n        return val && !value(checkValue);\n      }),\n    equals: (compareValue: MaybeSignal<any>) =>\n      genericOp(() => {\n        const val = evaluator();\n        return val === value(compareValue);\n      }),\n    notEquals: (compareValue: MaybeSignal<any>) =>\n      genericOp(() => {\n        const val = evaluator();\n        return val !== value(compareValue);\n      }),\n    orBothEqual: (\n      subjectValue: MaybeSignal<any>,\n      compareValue: MaybeSignal<any>,\n    ) =>\n      genericOp(() => {\n        const val = evaluator();\n        const comparisonResult = value(subjectValue) === value(compareValue);\n        return val || comparisonResult;\n      }),\n    orBothUnequal: (\n      subjectValue: MaybeSignal<any>,\n      compareValue: MaybeSignal<any>,\n    ) =>\n      genericOp(() => {\n        const val = evaluator();\n        const comparisonResult = value(subjectValue) !== value(compareValue);\n        return val || comparisonResult;\n      }),\n    andBothEqual: (\n      subjectValue: MaybeSignal<any>,\n      compareValue: MaybeSignal<any>,\n    ) =>\n      genericOp(() => {\n        const val = evaluator();\n        const comparisonResult = value(subjectValue) === value(compareValue);\n        return val && comparisonResult;\n      }),\n    andBothUnequal: (\n      subjectValue: MaybeSignal<any>,\n      compareValue: MaybeSignal<any>,\n    ) =>\n      genericOp(() => {\n        const val = evaluator();\n        const comparisonResult = value(subjectValue) !== value(compareValue);\n        return val && comparisonResult;\n      }),\n    orThisIsLT: (\n      subjectValue: MaybeSignal<number>,\n      compareValue: MaybeSignal<number>,\n    ) =>\n      genericOp(() => {\n        const val = evaluator();\n        const comparisonResult = value(subjectValue) < value(compareValue);\n        return val || comparisonResult;\n      }),\n    orThisIsLTE: (\n      subjectValue: MaybeSignal<number>,\n      compareValue: MaybeSignal<number>,\n    ) =>\n      genericOp(() => {\n        const val = evaluator();\n        const comparisonResult = value(subjectValue) <= value(compareValue);\n        return val || comparisonResult;\n      }),\n    orThisIsGT: (\n      subjectValue: MaybeSignal<number>,\n      compareValue: MaybeSignal<number>,\n    ) =>\n      genericOp(() => {\n        const val = evaluator();\n        const comparisonResult = value(subjectValue) > value(compareValue);\n        return val || comparisonResult;\n      }),\n    orThisIsGTE: (\n      subjectValue: MaybeSignal<number>,\n      compareValue: MaybeSignal<number>,\n    ) =>\n      genericOp(() => {\n        const val = evaluator();\n        const comparisonResult = value(subjectValue) >= value(compareValue);\n        return val || comparisonResult;\n      }),\n    andThisIsLT: (\n      subjectValue: MaybeSignal<number>,\n      compareValue: MaybeSignal<number>,\n    ) =>\n      genericOp(() => {\n        const val = evaluator();\n        const comparisonResult = value(subjectValue) < value(compareValue);\n        return val && comparisonResult;\n      }),\n    andThisIsLTE: (\n      subjectValue: MaybeSignal<number>,\n      compareValue: MaybeSignal<number>,\n    ) =>\n      genericOp(() => {\n        const val = evaluator();\n        const comparisonResult = value(subjectValue) <= value(compareValue);\n        return val && comparisonResult;\n      }),\n    andThisIsGT: (\n      subjectValue: MaybeSignal<number>,\n      compareValue: MaybeSignal<number>,\n    ) =>\n      genericOp(() => {\n        const val = evaluator();\n        const comparisonResult = value(subjectValue) > value(compareValue);\n        return val && comparisonResult;\n      }),\n    andThisIsGTE: (\n      subjectValue: MaybeSignal<number>,\n      compareValue: MaybeSignal<number>,\n    ) =>\n      genericOp(() => {\n        const val = evaluator();\n        const comparisonResult = value(subjectValue) >= value(compareValue);\n        return val && comparisonResult;\n      }),\n  };\n};",
+        "parameters": [
+          {
+            "name": "input",
+            "type": "MaybeSignal<T> | (() => T)",
+            "optional": false
+          }
+        ],
+        "typeParameters": [
+          "T"
+        ],
+        "tsdoc": {
+          "title": "Creates a generic lazy operation chain around an evaluator.",
+          "summary": "Chain methods compose a new evaluator without creating a signal. Reading a\nterminal getter or calling `then` creates a fresh derived signal that executes\nthe complete chain and tracks live values read on its first evaluation.",
+          "remarks": [
+            "- `or`, `orNot`, `and`, and `andNot` preserve JavaScript operand semantics.\n- Strict equality is used by equality operations.\n- JavaScript short-circuiting can skip a signal on the first terminal evaluation; such a signal is not added later.\n- Every access to `result`, `truthy`, `falsy`, or `truthyFalsyPair` creates a distinct derived signal."
+          ],
+          "examples": [
+            "```typescript\nconst enabled = signal(true);\nconst visible = genericOp(enabled).and(true).truthy;\nconst label = genericOp(enabled).then(\"shown\", \"hidden\");\n```"
+          ],
+          "params": [
+            {
+              "name": "input",
+              "description": "A signal-capable value or a zero-argument evaluator."
+            }
+          ],
+          "returns": [
+            "A generic operation object with logical chains and terminal results."
+          ],
+          "see": [
+            "{@link op} - Dispatches to the appropriate operation factory.",
+            "{@link GenericOperation} - Describes the returned chain.",
+            "{@link derive} - Creates terminal reactive results."
+          ],
+          "template": [
+            {
+              "name": "T",
+              "description": "The input evaluator's value type."
+            }
+          ],
+          "deprecated": []
+        },
+        "sourcePath": "src/api/operations/generic-operation.ts"
+      },
+      {
         "name": "maybePlain",
         "kind": "const",
         "filePath": "src/api/maybe-plain.ts",
@@ -1402,9 +1454,9 @@
         ],
         "tsdoc": {
           "title": "Adds generic logical helpers to a plain or signal-wrapped primitive input.",
-          "summary": "The wrapper exposes `or`, `is`, and `if` operations while preserving the\nderived result helpers for any accepted plain value or signal input.",
+          "summary": "The wrapper exposes `or`, `is`, `if`, and `toString()` operations while preserving the\nderived result helpers for any accepted plain value or signal input.",
           "remarks": [
-            "- The type constraint rejects inputs with no primitive member.\n- `or` uses JavaScript truthiness, not only nullishness.\n- Comparisons accept signal-capable operands.\n- Result helpers are eagerly maintained derived signals, including for plain inputs."
+            "- The type constraint rejects inputs with no primitive member.\n- `or` uses JavaScript truthiness, not only nullishness.\n- `toString()` produces an eagerly maintained string representation.\n- Comparisons accept signal-capable operands.\n- Result helpers are eagerly maintained derived signals, including for plain inputs."
           ],
           "examples": [
             "```typescript\nconst count = signal<number | null>(null);\nconst label = maybePlain(count).if.falsy().then(\"missing\", \"present\");\ncount.value = 1;\nconsole.log(label.value); // \"present\"\n```"
@@ -1432,6 +1484,104 @@
           "deprecated": []
         },
         "sourcePath": "src/api/maybe-plain.ts"
+      },
+      {
+        "name": "numberOp",
+        "kind": "const",
+        "filePath": "src/api/operations/number-operation.ts",
+        "isCallable": true,
+        "isExported": true,
+        "exportKind": "named",
+        "category": "api",
+        "signature": "export const numberOp = (\n  input: MaybeSignal<number> | (() => number),\n): NumberOperation => {\n  const evaluate: () => number =\n    typeof input === \"function\"\n      ? (input as () => number)\n      : (): number => value(input);\n\n  return {\n    ...genericOp(input),\n    get result() {\n      return derive(evaluate) as any;\n    },\n    add: (num: MaybeSignal<number>) =>\n      numberOp(() => {\n        const val = evaluate();\n        return val + value(num);\n      }),\n    sub: (num: MaybeSignal<number>) =>\n      numberOp(() => {\n        const val = evaluate();\n        return val - value(num);\n      }),\n    mul: (num: MaybeSignal<number>) =>\n      numberOp(() => {\n        const val = evaluate();\n        return val * value(num);\n      }),\n    div: (num: MaybeSignal<number>) =>\n      numberOp(() => {\n        const val = evaluate();\n        return val / value(num);\n      }),\n    mod: (num: MaybeSignal<number>) =>\n      numberOp(() => {\n        const val = evaluate();\n        return val % value(num);\n      }),\n    pow: (num: MaybeSignal<number>) =>\n      numberOp(() => {\n        const val = evaluate();\n        return val ** value(num);\n      }),\n    isBetween: (\n      lowerValue: MaybeSignal<number>,\n      upperValue: MaybeSignal<number>,\n      touchingLower = true,\n      touchingUpper = true,\n    ) =>\n      genericOp(() => {\n        const val = evaluate();\n        const lowerVal = value(lowerValue);\n        const upperVal = value(upperValue);\n        const lowerCheckPass = touchingLower ? val >= lowerVal : val > lowerVal;\n        const upperCheckPass = touchingUpper ? val <= upperVal : val < upperVal;\n        return lowerCheckPass && upperCheckPass;\n      }),\n    isLT: (compareValue: MaybeSignal<number>) =>\n      genericOp(() => evaluate() < value(compareValue)),\n    isLTE: (compareValue: MaybeSignal<number>) =>\n      genericOp(() => evaluate() <= value(compareValue)),\n    isGT: (compareValue: MaybeSignal<number>) =>\n      genericOp(() => evaluate() > value(compareValue)),\n    isGTE: (compareValue: MaybeSignal<number>) =>\n      genericOp(() => evaluate() >= value(compareValue)),\n  };\n};",
+        "parameters": [
+          {
+            "name": "input",
+            "type": "MaybeSignal<number> | (() => number)",
+            "optional": false
+          }
+        ],
+        "typeParameters": [],
+        "tsdoc": {
+          "title": "Creates a lazy numeric operation chain around an evaluator.",
+          "summary": "Arithmetic methods compose further numeric evaluators. Comparison methods\nswitch to generic boolean chains, and terminal getters create derived signals.",
+          "remarks": [
+            "- Arithmetic uses native JavaScript operators without validation.\n- `isBetween` includes both bounds by default; each bound can be made exclusive independently.\n- Operands are unwrapped only when a terminal derived result evaluates.\n- Each terminal getter access creates a distinct derived signal."
+          ],
+          "examples": [
+            "```typescript\nconst count = signal(10);\nconst doubled = numberOp(count).mul(2).result;\nconst inside = numberOp(count).isBetween(5, 15).truthy;\n```"
+          ],
+          "params": [
+            {
+              "name": "input",
+              "description": "A signal-capable number or zero-argument numeric evaluator."
+            }
+          ],
+          "returns": [
+            "A number operation with arithmetic, range, comparison, and generic methods."
+          ],
+          "see": [
+            "{@link op} - Selects this factory for numeric initial values.",
+            "{@link NumberOperation} - Describes the returned chain.",
+            "{@link genericOp} - Supplies generic logical operations."
+          ],
+          "template": [],
+          "deprecated": []
+        },
+        "sourcePath": "src/api/operations/number-operation.ts"
+      },
+      {
+        "name": "op",
+        "kind": "const",
+        "filePath": "src/api/operations/index.ts",
+        "isCallable": true,
+        "isExported": true,
+        "exportKind": "named",
+        "category": "api",
+        "signature": "export const op = <T>(input: MaybeSignal<T> | (() => T)): Operation<T> => {\n  const evaluator: () => T =\n    typeof input === \"function\"\n      ? (input as () => T)\n      : (): T => value(input as MaybeSignal<T>);\n  const val = evaluator();\n\n  return (\n    typeof val === \"number\"\n      ? numberOp(input as MaybeSignal<number> | (() => number))\n      : typeof val === \"string\" || Array.isArray(val)\n        ? stringAndArrayOp(\n            input as\n              | MaybeSignal<string | readonly unknown[]>\n              | (() => string | readonly unknown[]),\n          )\n        : genericOp(input)\n  ) as Operation<T>;\n};",
+        "parameters": [
+          {
+            "name": "input",
+            "type": "MaybeSignal<T> | (() => T)",
+            "optional": false
+          }
+        ],
+        "typeParameters": [
+          "T"
+        ],
+        "tsdoc": {
+          "title": "Selects a lazy operation chain from the input's current runtime value.",
+          "summary": "The input is evaluated once for dispatch: numbers receive arithmetic methods,\nstrings and arrays receive length methods, and every other value receives the\ngeneric logical surface.",
+          "remarks": [
+            "- A function input is invoked once immediately for dispatch and again by terminal evaluation.\n- The selected operation variant never changes if a live input later changes runtime type.\n- Chain methods are lazy; terminal getters and `then()` create derived signals.\n- Runtime dispatch uses `typeof` for numbers and strings and `Array.isArray` for arrays."
+          ],
+          "examples": [
+            "```typescript\nconst count = signal(5);\nconst total = op(count).add(3).result;\nconst inRange = op(count).isBetween(1, 10).truthy;\nconst label = op(count).isGT(0).then(\"positive\", \"other\");\n```"
+          ],
+          "params": [
+            {
+              "name": "input",
+              "description": "A signal-capable value or zero-argument evaluator."
+            }
+          ],
+          "returns": [
+            "The operation variant selected from the initial evaluated value."
+          ],
+          "see": [
+            "{@link Operation} - Maps input types to operation variants.",
+            "{@link numberOp} - Builds numeric chains.",
+            "{@link stringAndArrayOp} - Builds length-aware chains.",
+            "{@link genericOp} - Builds generic logical chains."
+          ],
+          "template": [
+            {
+              "name": "T",
+              "description": "The input value type used to select the operation return type."
+            }
+          ],
+          "deprecated": []
+        },
+        "sourcePath": "src/api/operations/index.ts"
       },
       {
         "name": "promstates",
@@ -1573,6 +1723,58 @@
           "deprecated": []
         },
         "sourcePath": "src/api/connectors.ts"
+      },
+      {
+        "name": "stringAndArrayOp",
+        "kind": "const",
+        "filePath": "src/api/operations/string-and-array-operation.ts",
+        "isCallable": true,
+        "isExported": true,
+        "exportKind": "named",
+        "category": "api",
+        "signature": "export const stringAndArrayOp = <T extends string | readonly unknown[]>(\n  input: MaybeSignal<T> | (() => T),\n): StringAndArrayOperation => {\n  const evaluate: () => T =\n    typeof input === \"function\"\n      ? (input as () => T)\n      : (): T => value(input as MaybeSignal<T>);\n\n  return {\n    ...genericOp(input),\n    lengthBetween: (\n      lowerValue: MaybeSignal<number>,\n      upperValue: MaybeSignal<number>,\n      touchingLower = true,\n      touchingUpper = true,\n    ) =>\n      genericOp(() => {\n        const val = evaluate();\n        const len = val.length;\n        const lowerVal = value(lowerValue);\n        const upperVal = value(upperValue);\n        const lowerCheckPass = touchingLower ? len >= lowerVal : len > lowerVal;\n        const upperCheckPass = touchingUpper ? len <= upperVal : len < upperVal;\n        return lowerCheckPass && upperCheckPass;\n      }),\n    lengthEquals: (compareValue: MaybeSignal<number>) =>\n      genericOp(() => {\n        const val = evaluate();\n        return val.length === value(compareValue);\n      }),\n    lengthNotEquals: (compareValue: MaybeSignal<number>) =>\n      genericOp(() => {\n        const val = evaluate();\n        return val.length !== value(compareValue);\n      }),\n    lengthLT: (compareValue: MaybeSignal<number>) =>\n      genericOp(() => {\n        const val = evaluate();\n        return val.length < value(compareValue);\n      }),\n    lengthLTE: (compareValue: MaybeSignal<number>) =>\n      genericOp(() => {\n        const val = evaluate();\n        return val.length <= value(compareValue);\n      }),\n    lengthGT: (compareValue: MaybeSignal<number>) =>\n      genericOp(() => {\n        const val = evaluate();\n        return val.length > value(compareValue);\n      }),\n    lengthGTE: (compareValue: MaybeSignal<number>) =>\n      genericOp(() => {\n        const val = evaluate();\n        return val.length >= value(compareValue);\n      }),\n  };\n};",
+        "parameters": [
+          {
+            "name": "input",
+            "type": "MaybeSignal<T> | (() => T)",
+            "optional": false
+          }
+        ],
+        "typeParameters": [
+          "T"
+        ],
+        "tsdoc": {
+          "title": "Creates a lazy length-aware operation chain for a string or array.",
+          "summary": "Length methods compose boolean evaluators and return generic operation chains;\ntheir terminal getters then create reactive derived results.",
+          "remarks": [
+            "- Length is read with the native `.length` property.\n- `lengthBetween` includes both bounds by default and supports independent exclusivity flags.\n- Comparison operands can themselves be live signals.\n- Each terminal getter access creates a distinct derived signal."
+          ],
+          "examples": [
+            "```typescript\nconst text = signal(\"hello\");\nconst exact = stringAndArrayOp(text).lengthEquals(5).truthy;\nconst bounded = stringAndArrayOp(text).lengthBetween(1, 10).truthy;\n```"
+          ],
+          "params": [
+            {
+              "name": "input",
+              "description": "A signal-capable value or zero-argument evaluator returning `T`."
+            }
+          ],
+          "returns": [
+            "A string-and-array operation with length and generic logical methods."
+          ],
+          "see": [
+            "{@link op} - Selects this factory for string and array initial values.",
+            "{@link StringAndArrayOperation} - Describes the returned chain.",
+            "{@link genericOp} - Supplies generic logical operations."
+          ],
+          "template": [
+            {
+              "name": "T",
+              "description": "The string or mutable/readonly array input type."
+            }
+          ],
+          "deprecated": []
+        },
+        "sourcePath": "src/api/operations/string-and-array-operation.ts"
       },
       {
         "name": "tmpl",
@@ -2313,6 +2515,44 @@
         "sourcePath": "src/_core/data-specific-methods/types.ts"
       },
       {
+        "name": "CommonGenericMethods",
+        "kind": "type",
+        "filePath": "src/_core/data-specific-methods/types.ts",
+        "isCallable": false,
+        "isExported": true,
+        "exportKind": "named",
+        "category": "core",
+        "signature": "export type CommonGenericMethods<P> = {\n  or: <U>(\n    alternativeValue: MaybeSignal<U>,\n  ) => DerivedSignal<NonNullable<P> | U>;\n  /** Returns an eagerly maintained string representation of the value. */\n  toString: () => DerivedSignal<string>;\n};",
+        "parameters": [],
+        "typeParameters": [
+          "P"
+        ],
+        "tsdoc": {
+          "title": "Defines the fallback method available to supported primitive values.",
+          "summary": "The `or()` method selects an alternative for a falsy input and returns a\nsignal matching the derived result type.",
+          "remarks": [
+            "- The result excludes `null` and `undefined` from the original value branch\n- The alternative may itself be a signal"
+          ],
+          "examples": [
+            "```typescript\ndeclare const methods: CommonGenericMethods<string | undefined>;\nconst text = methods.or(\"fallback\"); // DerivedSignal<string>\n```"
+          ],
+          "params": [],
+          "returns": [],
+          "see": [
+            "{@link GenericMethods} - The conditional method surface containing `or()`",
+            "{@link DerivedSignal} - The result returned by or()."
+          ],
+          "template": [
+            {
+              "name": "P",
+              "description": "The primitive input value type"
+            }
+          ],
+          "deprecated": []
+        },
+        "sourcePath": "src/_core/data-specific-methods/types.ts"
+      },
+      {
         "name": "Comparison",
         "kind": "type",
         "filePath": "src/_core/data-specific-methods/types.ts",
@@ -2582,7 +2822,7 @@
         "isExported": true,
         "exportKind": "named",
         "category": "core",
-        "signature": "export type GenericMethods<   T> = [\n  true,\n] extends [IsExactlyAny<T>]\n  ? IsAndIfComparison<any[]>\n  : [true] extends [IsExactly<T, Record<string, any>>]\n    ? {}\n    : [true] extends [HasPrimitive<T>]\n      ? LogicalOrAlternative<Extract<T, Primitive>> &\n          IsAndIfComparison<Extract<T, Primitive>>\n      : IsAndIfComparison<any[]>;",
+        "signature": "export type GenericMethods<T> = [\n  true,\n] extends [IsExactlyAny<T>]\n  ? CommonGenericMethods<any> & IsAndIfComparison<any>\n  : [true] extends [IsExactly<T, Record<string, any>>]\n    ? CommonGenericMethods<T>\n    : CommonGenericMethods<T> & IsAndIfComparison<T>;",
         "parameters": [],
         "typeParameters": [
           "T"
@@ -2591,7 +2831,7 @@
           "title": "Selects the generic logical methods available to a value type.",
           "summary": "Combines fallback, direct comparison, and ternary comparison surfaces based\non the input's primitive, string, array, or object shape.",
           "remarks": [
-            "- Exact record types receive no generic methods\n- Primitive-containing types receive `or`, `is`, and `if`\n- Array-only types receive length-based `is` and `if` groups"
+            "- Every supported value type receives `or()` and `toString()`\n- Primitive-containing types also receive `is` and `if`\n- Array-only types receive length-based `is` and `if` groups"
           ],
           "examples": [
             "```typescript\ndeclare const methods: GenericMethods<number>;\nconst positive = methods.is.greaterThan(0);\n```"
@@ -2599,7 +2839,7 @@
           "params": [],
           "returns": [],
           "see": [
-            "{@link LogicalOrAlternative} - The fallback surface",
+            "{@link CommonGenericMethods} - The fallback surface",
             "{@link IsAndIfComparison} - The comparison surfaces"
           ],
           "template": [
@@ -2658,7 +2898,7 @@
         "isExported": true,
         "exportKind": "named",
         "category": "core",
-        "signature": "export type IsAndIfComparison<\n  T extends Primitive | any[],\n> = {\n  is: ([T] extends [Primitive] ? Comparison<\"deriver\", T> : {}) &\n    ([string] extends [T]\n      ? LengthComparison<\"deriver\">\n      : [any[]] extends [T]\n        ? LengthComparison<\"deriver\">\n        : {});\n  if: ([T] extends [Primitive] ? Comparison<\"ternary\", T> : {}) &\n    ([string] extends [T]\n      ? LengthComparison<\"ternary\">\n      : [any[]] extends [T]\n        ? LengthComparison<\"ternary\">\n        : {});\n};",
+        "signature": "export type IsAndIfComparison<T> = {\n  is: ([T] extends [Primitive] ? Comparison<\"deriver\", T> : {}) &\n    ([string] extends [T]\n      ? LengthComparison<\"deriver\">\n      : [any[]] extends [T]\n        ? LengthComparison<\"deriver\">\n        : {});\n  if: ([T] extends [Primitive] ? Comparison<\"ternary\", T> : {}) &\n    ([string] extends [T]\n      ? LengthComparison<\"ternary\">\n      : [any[]] extends [T]\n        ? LengthComparison<\"ternary\">\n        : {});\n};",
         "parameters": [],
         "typeParameters": [
           "T"
@@ -2920,44 +3160,6 @@
             {
               "name": "GenericMethodReturn",
               "description": "Whether methods return signals or ternary continuations"
-            }
-          ],
-          "deprecated": []
-        },
-        "sourcePath": "src/_core/data-specific-methods/types.ts"
-      },
-      {
-        "name": "LogicalOrAlternative",
-        "kind": "type",
-        "filePath": "src/_core/data-specific-methods/types.ts",
-        "isCallable": false,
-        "isExported": true,
-        "exportKind": "named",
-        "category": "core",
-        "signature": "export type LogicalOrAlternative<\n  P extends Primitive,\n> = {\n  or: <U>(\n    alternativeValue: MaybeSignal<U>,\n  ) => DerivedSignal<NonNullable<P> | U>;\n};",
-        "parameters": [],
-        "typeParameters": [
-          "P"
-        ],
-        "tsdoc": {
-          "title": "Defines the fallback method available to supported primitive values.",
-          "summary": "The `or()` method selects an alternative for a falsy input and returns a\nsignal matching the derived result type.",
-          "remarks": [
-            "- The result excludes `null` and `undefined` from the original value branch\n- The alternative may itself be a signal"
-          ],
-          "examples": [
-            "```typescript\ndeclare const methods: LogicalOrAlternative<string | undefined>;\nconst text = methods.or(\"fallback\"); // DerivedSignal<string>\n```"
-          ],
-          "params": [],
-          "returns": [],
-          "see": [
-            "{@link GenericMethods} - The conditional method surface containing `or()`",
-            "{@link DerivedSignal} - The result returned by or()."
-          ],
-          "template": [
-            {
-              "name": "P",
-              "description": "The primitive input value type"
             }
           ],
           "deprecated": []
@@ -3992,6 +4194,174 @@
       }
     ],
     "api": [
+      {
+        "name": "GenericOperation",
+        "kind": "type",
+        "filePath": "src/api/operations/types.ts",
+        "isCallable": false,
+        "isExported": true,
+        "exportKind": "named",
+        "category": "api",
+        "signature": "export type GenericOperation = OperationResult & {\n  /** Chains an OR operation */\n  or: LogicalOperation<any>;\n  /** Chains an OR-NOT operation */\n  orNot: LogicalOperation<any>;\n  /** Chains an AND operation */\n  and: LogicalOperation<any>;\n  /** Chains an AND-NOT operation */\n  andNot: LogicalOperation<any>;\n  /** Chains an equality comparison */\n  equals: ComparisonOperation<any>;\n  /** Chains an inequality comparison */\n  notEquals: ComparisonOperation<any>;\n  /** Chains an OR operation with an equality check on two other values */\n  orBothEqual: LogicWithComparisonOperation<any>;\n  /** Chains an OR operation with an inequality check on two other values */\n  orBothUnequal: LogicWithComparisonOperation<any>;\n  /** Chains an AND operation with an equality check on two other values */\n  andBothEqual: LogicWithComparisonOperation<any>;\n  /** Chains an AND operation with an inequality check on two other values */\n  andBothUnequal: LogicWithComparisonOperation<any>;\n  /** Chains an OR operation with a less-than comparison on two other values */\n  orThisIsLT: LogicWithComparisonOperation<number>;\n  /** Chains an OR operation with a less-than-or-equal comparison on two other values */\n  orThisIsLTE: LogicWithComparisonOperation<number>;\n  /** Chains an OR operation with a greater-than comparison on two other values */\n  orThisIsGT: LogicWithComparisonOperation<number>;\n  /** Chains an OR operation with a greater-than-or-equal comparison on two other values */\n  orThisIsGTE: LogicWithComparisonOperation<number>;\n  /** Chains an AND operation with a less-than comparison on two other values */\n  andThisIsLT: LogicWithComparisonOperation<number>;\n  /** Chains an AND operation with a less-than-or-equal comparison on two other values */\n  andThisIsLTE: LogicWithComparisonOperation<number>;\n  /** Chains an AND operation with a greater-than comparison on two other values */\n  andThisIsGT: LogicWithComparisonOperation<number>;\n  /** Chains an AND operation with a greater-than-or-equal comparison on two other values */\n  andThisIsGTE: LogicWithComparisonOperation<number>;\n};",
+        "parameters": [],
+        "typeParameters": [],
+        "tsdoc": {
+          "title": "Describes the logical chain available for every operation input.",
+          "summary": "Each method returns another generic chain whose evaluator composes the prior\nvalue with signal-capable logical or comparison operands.",
+          "remarks": [
+            "- Logical operations use native `||`, `&&`, and `!` semantics.\n- Equality operations use strict equality and inequality.\n- Two-value comparison helpers evaluate their subject and comparison operands.\n- Terminal behavior is inherited from `OperationResult`."
+          ],
+          "examples": [
+            "```typescript\nconst chain: GenericOperation = op(true)\n  .and(signal(1))\n  .notEquals(false);\nconst result = chain.truthy;\n```"
+          ],
+          "params": [],
+          "returns": [],
+          "see": [
+            "{@link OperationResult} - Creates terminal derived results.",
+            "{@link genericOp} - Constructs this operation shape.",
+            "{@link Operation} - Selects an operation shape by input type."
+          ],
+          "template": [],
+          "deprecated": []
+        },
+        "sourcePath": "src/api/operations/types.ts"
+      },
+      {
+        "name": "NumberOperation",
+        "kind": "type",
+        "filePath": "src/api/operations/types.ts",
+        "isCallable": false,
+        "isExported": true,
+        "exportKind": "named",
+        "category": "api",
+        "signature": "export type NumberOperation = GenericOperation & {\n  /** The numeric value as a derived signal. */\n  get result(): DerivedSignal<number>;\n  /** Chains an addition operation */\n  add: MathOperation;\n  /** Chains a subtraction operation */\n  sub: MathOperation;\n  /** Chains a multiplication operation */\n  mul: MathOperation;\n  /** Chains a division operation */\n  div: MathOperation;\n  /** Chains a modulo operation */\n  mod: MathOperation;\n  /** Chains an exponentiation operation */\n  pow: MathOperation;\n  /** Checks if the value is between lower and upper (inclusive by default) */\n  isBetween: ConfinementCheckOperation;\n  /** Chains a less-than comparison */\n  isLT: ComparisonOperation<number>;\n  /** Chains a less-than-or-equal comparison */\n  isLTE: ComparisonOperation<number>;\n  /** Chains a greater-than comparison */\n  isGT: ComparisonOperation<number>;\n  /** Chains a greater-than-or-equal comparison */\n  isGTE: ComparisonOperation<number>;\n};",
+        "parameters": [],
+        "typeParameters": [],
+        "tsdoc": {
+          "title": "Describes numeric arithmetic and comparison operation chains.",
+          "summary": "This operation extends generic logical composition, narrows `result` to a\nnumber, and adds native arithmetic and range comparisons.",
+          "remarks": [
+            "- Arithmetic methods return another `NumberOperation`.\n- Numeric comparisons return `GenericOperation` boolean chains.\n- Range bounds are inclusive by default.\n- JavaScript numeric edge cases such as `NaN` and division by zero are preserved."
+          ],
+          "examples": [
+            "```typescript\nconst chain: NumberOperation = op(10).add(2).mul(3);\nconsole.log(chain.result.value); // 36\n```"
+          ],
+          "params": [],
+          "returns": [],
+          "see": [
+            "{@link numberOp} - Constructs this operation shape.",
+            "{@link GenericOperation} - Supplies inherited logical methods.",
+            "{@link Operation} - Selects this shape for numeric inputs."
+          ],
+          "template": [],
+          "deprecated": []
+        },
+        "sourcePath": "src/api/operations/types.ts"
+      },
+      {
+        "name": "Operation",
+        "kind": "type",
+        "filePath": "src/api/operations/types.ts",
+        "isCallable": false,
+        "isExported": true,
+        "exportKind": "named",
+        "category": "api",
+        "signature": "export type Operation<T> = T extends number\n  ? NumberOperation\n  : T extends string | readonly unknown[]\n    ? StringAndArrayOperation\n    : GenericOperation;",
+        "parameters": [],
+        "typeParameters": [
+          "T"
+        ],
+        "tsdoc": {
+          "title": "Maps an input value type to its operation-chain surface.",
+          "summary": "Numeric types receive arithmetic operations, string and array types receive\nlength operations, and all other types receive generic logical operations.",
+          "remarks": [
+            "- The conditional type distributes over union inputs.\n- Runtime `op()` dispatch is based only on the initially evaluated value.\n- This type does not make a chain change shape after creation."
+          ],
+          "examples": [
+            "```typescript\ntype Numeric = Operation<number>; // NumberOperation\ntype Textual = Operation<string>; // StringAndArrayOperation\ntype Flag = Operation<boolean>; // GenericOperation\n```"
+          ],
+          "params": [],
+          "returns": [],
+          "see": [
+            "{@link op} - Performs the corresponding runtime dispatch.",
+            "{@link NumberOperation} - Numeric result shape.",
+            "{@link StringAndArrayOperation} - String and array result shape.",
+            "{@link GenericOperation} - Fallback result shape."
+          ],
+          "template": [
+            {
+              "name": "T",
+              "description": "The input value type to classify."
+            }
+          ],
+          "deprecated": []
+        },
+        "sourcePath": "src/api/operations/types.ts"
+      },
+      {
+        "name": "OperationResult",
+        "kind": "type",
+        "filePath": "src/api/operations/types.ts",
+        "isCallable": false,
+        "isExported": true,
+        "exportKind": "named",
+        "category": "api",
+        "signature": "export type OperationResult = {\n  /** Derived signal of the evaluated operation value. */\n  get result(): DerivedSignal<unknown>;\n  /** Derived signal of whether the evaluated value is truthy. */\n  get truthy(): DerivedSignal<boolean>;\n  /** Derived signal of whether the evaluated value is falsy. */\n  get falsy(): DerivedSignal<boolean>;\n  /** Derived signal of the `[isTruthy, isFalsy]` pair. */\n  get truthyFalsyPair(): DerivedSignal<readonly [boolean, boolean]>;\n  /** Returns `valueIfTruthy` if truthy, otherwise `valueIfFalsy`. */\n  then: <Tr, Fl>(\n    valueIfTruthy: MaybeSignal<Tr>,\n    valueIfFalsy: MaybeSignal<Fl>,\n  ) => DerivedSignal<Tr | Fl>;\n};",
+        "parameters": [],
+        "typeParameters": [],
+        "tsdoc": {
+          "title": "Describes terminal result creation shared by every operation chain.",
+          "summary": "Getter access and `then()` terminate lazy operation composition by creating a\nnew derived signal that evaluates the chain.",
+          "remarks": [
+            "- `result` preserves the evaluated value with the broad `unknown` type here.\n- Boolean getters coerce with JavaScript truthiness.\n- `then()` evaluates only the selected option on each run.\n- Each terminal access creates a separate derived signal and subscription."
+          ],
+          "examples": [
+            "```typescript\nconst operation: OperationResult = op(true);\nconst raw = operation.result;\nconst pair = operation.truthyFalsyPair;\nconst label = operation.then(\"yes\", \"no\");\n```"
+          ],
+          "params": [],
+          "returns": [],
+          "see": [
+            "{@link GenericOperation} - Adds logical composition methods.",
+            "{@link NumberOperation} - Narrows `result` to a numeric signal.",
+            "{@link DerivedSignal} - Represents every terminal result."
+          ],
+          "template": [],
+          "deprecated": []
+        },
+        "sourcePath": "src/api/operations/types.ts"
+      },
+      {
+        "name": "StringAndArrayOperation",
+        "kind": "type",
+        "filePath": "src/api/operations/types.ts",
+        "isCallable": false,
+        "isExported": true,
+        "exportKind": "named",
+        "category": "api",
+        "signature": "export type StringAndArrayOperation = GenericOperation & {\n  /** Checks whether the length is between lower and upper values. */\n  lengthBetween: ConfinementCheckOperation;\n  /** Chains a length equality comparison. */\n  lengthEquals: ComparisonOperation<number>;\n  /** Chains a length inequality comparison. */\n  lengthNotEquals: ComparisonOperation<number>;\n  /** Chains a length less-than comparison. */\n  lengthLT: ComparisonOperation<number>;\n  /** Chains a length less-than-or-equal comparison. */\n  lengthLTE: ComparisonOperation<number>;\n  /** Chains a length greater-than comparison. */\n  lengthGT: ComparisonOperation<number>;\n  /** Chains a length greater-than-or-equal comparison. */\n  lengthGTE: ComparisonOperation<number>;\n};",
+        "parameters": [],
+        "typeParameters": [],
+        "tsdoc": {
+          "title": "Describes length comparisons for string and array operation chains.",
+          "summary": "This operation extends generic logical composition with equality, ordering,\nand bounded-range checks against the evaluated value's `.length`.",
+          "remarks": [
+            "- Every length method returns a generic boolean operation chain.\n- Comparison values may be plain, live, or dead signals.\n- `lengthBetween` includes both bounds by default.\n- String length follows JavaScript UTF-16 code-unit semantics."
+          ],
+          "examples": [
+            "```typescript\nconst chain: StringAndArrayOperation = op(\"hello\");\nconst longEnough = chain.lengthGTE(5).truthy;\n```"
+          ],
+          "params": [],
+          "returns": [],
+          "see": [
+            "{@link stringAndArrayOp} - Constructs this operation shape.",
+            "{@link GenericOperation} - Supplies inherited logical methods.",
+            "{@link Operation} - Selects this shape for strings and arrays."
+          ],
+          "template": [],
+          "deprecated": []
+        },
+        "sourcePath": "src/api/operations/types.ts"
+      },
       {
         "name": "StringSignalDeriverTemplateExpressions",
         "kind": "type",

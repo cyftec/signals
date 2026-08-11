@@ -8,7 +8,7 @@ import {
 /**
  * Adds generic logical helpers to a plain or signal-wrapped primitive input.
  *
- * The wrapper exposes `or`, `is`, and `if` operations while preserving the
+ * The wrapper exposes `or`, `is`, `if`, and `toString()` operations while preserving the
  * derived result helpers for any accepted plain value or signal input.
  *
  * @template I - The concrete plain or signal input type.
@@ -18,6 +18,7 @@ import {
  * @remarks
  * - The type constraint rejects inputs with no primitive member.
  * - `or` uses JavaScript truthiness, not only nullishness.
+ * - `toString()` produces an eagerly maintained string representation.
  * - Comparisons accept signal-capable operands.
  * - Result helpers are eagerly maintained derived signals, including for plain inputs.
  *

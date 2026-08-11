@@ -12,7 +12,7 @@ bun add @cyftec/signals
 ## Quick start
 
 ```ts
-import { deadZone, derive, effect, signal } from "@cyftec/signals";
+import { deadZone, derive, effect, op, signal } from "@cyftec/signals";
 
 const count = signal(1);
 const doubled = derive(() => count.value * 2);
@@ -24,6 +24,9 @@ const receiver = effect(() => {
 
 count.value = 2;
 receiver.dispose(); // stop future automatic reruns
+
+const label = op(count).isBetween(1, 10).then("in range", "outside");
+console.log(label.value); // "in range"
 ```
 
 `effect()` runs immediately. Source signals read during that initial run become
@@ -49,7 +52,9 @@ provide `nonReactiveValue` for a single non-collecting read.
 - Array, object, string, number, and boolean helper families selected from the
   initial value.
 - Convenience APIs: `compute`, `tmpl`, `receive`, `transmit`, `promstates`,
-  `maybePlain`, and `dispose`.
+  `maybePlain`, `op`, and `dispose`.
+- Lazy operation chains with eager reactive terminal values for generic logic,
+  numeric arithmetic and comparisons, and string or array length checks.
 - Directional TypeScript variance for signal containers.
 
 ## Documentation
