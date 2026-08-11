@@ -91,7 +91,7 @@ The optional second argument selects a data-method family for a nullish initial 
 - `.value` reads the current stored result and can register an installing effect against that stored result.
 - `.nonReactiveValue` reads that same stored result without registering an effect.
 - `prevValue` is initially `undefined`, then contains the preceding stored result after a changed recomputation.
-- The catcher receives the backing signal's `prevValue`; it is `undefined` for both the initial computation and first recomputation.
+- The catcher receives the most recently stored derived result; it is `undefined` only during the initial computation.
 - `dispose()` stops the internal effect, freezing the stored value; it is idempotent.
 - Derived projections and generic helpers are derived signals, so they compute when the helper is called and stay current through their captured dependencies.
 
@@ -195,7 +195,7 @@ Creates `DerivedSignal<T>`:
 - readonly `prevValue: T | undefined`
 - `dispose(): void`
 
-The catcher runs immediately and receives the backing signal's previous value. Source signals read during that first run become fixed dependencies. A dependency write recomputes and stores a new result synchronously; a strictly equal result does not notify downstream effects. Reading either value getter returns the stored result without calling the catcher. The optional hint selects non-mutating data methods.
+The catcher runs immediately and receives the most recently stored derived result; it is `undefined` only for that initial call. Source signals read during that first run become fixed dependencies. A dependency write recomputes and stores a new result synchronously; a strictly equal result does not notify downstream effects. Reading either value getter returns the stored result without calling the catcher. The optional hint selects non-mutating data methods.
 
 #### `effect(callback)`
 

@@ -3,6 +3,8 @@ import { DerivedSignal, Receiver } from "../_core";
 /**
  * Disposes several effect receivers and derived signals in one call.
  *
+ * Each supplied disposable is stopped in argument order.
+ *
  * @template T - The value types carried by the supplied derived signals.
  * @param derivedSignalsOrReceivers - Disposable effects or derived signals.
  * @returns Nothing.

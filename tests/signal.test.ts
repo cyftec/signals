@@ -343,20 +343,59 @@ describe("derive", () => {
     expect(doubled.prevValue).toBe(2);
   });
 
-  it("passes the backing signal previous value to its catcher", () => {
+  it("passes the last stored result to its catcher, including on its first update", () => {
     const count = signal(1);
     const catcherPreviousValues: Array<number | undefined> = [];
     const doubled = derive<number>((previousValue) => {
       catcherPreviousValues.push(previousValue);
       return count.value * 2;
     });
+    expect(doubled.prevValue).toBe(undefined);
+    expect(doubled.value).toBe(2);
 
     count.value = 2;
+
+    expect(doubled.prevValue).toBe(2);
+    expect(doubled.value).toBe(4);
+
     count.value = 3;
 
-    expect(doubled.value).toBe(6);
-    expect(catcherPreviousValues).toEqual([undefined, undefined, 2]);
     expect(doubled.prevValue).toBe(4);
+    expect(doubled.value).toBe(6);
+
+    expect(catcherPreviousValues).toEqual([undefined, 2, 4]);
+  });
+
+  it("makes the last stored result available for stateful recomputations", () => {
+    const count = signal(1);
+    const runningTotal = derive<number>(
+      (previousValue) => (previousValue ?? 0) + count.value,
+    );
+
+    expect(runningTotal.value).toBe(1);
+
+    count.value = 2;
+    expect(runningTotal.value).toBe(3);
+
+    count.value = 3;
+    expect(runningTotal.value).toBe(6);
+    expect(runningTotal.prevValue).toBe(3);
+  });
+
+  it("passes the stored result even when the preceding recomputation was unchanged", () => {
+    const count = signal(1);
+    const catcherPreviousValues: Array<number | undefined> = [];
+    const parity = derive<number>((previousValue) => {
+      catcherPreviousValues.push(previousValue);
+      return count.value % 2;
+    });
+
+    count.value = 3;
+    count.value = 4;
+
+    expect(parity.value).toBe(0);
+    expect(catcherPreviousValues).toEqual([undefined, 1, 1]);
+    expect(parity.prevValue).toBe(1);
   });
 
   it("tracks multiple dependencies", () => {

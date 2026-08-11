@@ -57,8 +57,8 @@ export type DerivedSignal<T> = BaseDerivedSignal<T> & DerivedSignalMethods<T>;
  * @returns A read-only derived signal containing the most recently computed value.
  *
  * @remarks
- * - The catcher receives the backing signal's previous value, which is undefined
- *   during both the initial computation and its first recomputation.
+ * - The catcher receives the most recently stored derived value. It is undefined
+ *   only during the initial computation.
  * - Source-signal reads during the initial catch are fixed dependencies for future recomputation.
  * - Reading value and nonReactiveValue does not invoke the catcher.
  * - dispose() stops the internal effect and freezes the stored value.
@@ -74,12 +74,14 @@ export type DerivedSignal<T> = BaseDerivedSignal<T> & DerivedSignalMethods<T>;
  * @see {@link compute} - Creates a derived signal from signal-capable arguments.
  */
 export const derive = <T>(
-  signalCatcherFn: (oldValue: T | undefined) => T,
+  signalCatcherFn: (previousValue: T | undefined) => T,
   nonNullInitialValue?: NonNullable<T>,
 ): DerivedSignal<T> => {
   const _baseSourceSignal = signal<T>(undefined as T);
   const _receiver = effect(() => {
-    _baseSourceSignal.value = signalCatcherFn(_baseSourceSignal.prevValue);
+    _baseSourceSignal.value = signalCatcherFn(
+      _baseSourceSignal.nonReactiveValue,
+    );
   });
 
   let derivedSignal: BaseDerivedSignal<T> = {

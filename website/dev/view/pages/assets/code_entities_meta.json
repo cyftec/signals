@@ -2,37 +2,6 @@
   "const": {
     "core": [
       {
-        "name": "ConnectionsManager",
-        "kind": "const",
-        "filePath": "src/_core/signals-reception-manager.ts",
-        "isCallable": false,
-        "isExported": true,
-        "exportKind": "named",
-        "category": "core",
-        "signature": "export const ConnectionsManager = ((): SignalsReceptionManager => {\n  let _newReceiver: Receiver | null = null;\n  const _receivers = new Map<number, Receiver>();\n  const _signalsReceiversMap = new Map<\n    BaseSourceSignal<unknown>,\n    Set<number>\n  >();\n\n  const signalsReceptionManager: SignalsReceptionManager = {\n    addReceiver(receiver: Receiver) {\n      _receivers.set(receiver.id, receiver);\n      _newReceiver = receiver;\n      try {\n        receiver.run();\n      } catch (error) {\n        signalsReceptionManager.removeReceiver(receiver);\n        throw error;\n      } finally {\n        _newReceiver = null;\n      }\n    },\n\n    removeReceiver(receiver: Receiver) {\n      _signalsReceiversMap.forEach((receiverIdsSet, signal) => {\n        receiverIdsSet.delete(receiver.id);\n        if (receiverIdsSet.size === 0) {\n          _signalsReceiversMap.delete(signal);\n        }\n      });\n      _receivers.delete(receiver.id);\n    },\n\n    ignoreReceiver<T>(callbackWithSignals: () => T): T {\n      const preservedReceiver = _newReceiver;\n      _newReceiver = null;\n      try {\n        return callbackWithSignals();\n      } finally {\n        _newReceiver = preservedReceiver;\n      }\n    },\n\n    connectWithNewReceiver(signal: BaseSourceSignal<unknown>) {\n      if (_newReceiver) {\n        if (_signalsReceiversMap.has(signal)) {\n          _signalsReceiversMap.get(signal)!.add(_newReceiver!.id);\n        } else {\n          const newReceiverSet: Set<number> = new Set([_newReceiver!.id]);\n          _signalsReceiversMap.set(signal, newReceiverSet);\n        }\n      }\n    },\n\n    runReceivers(signal: BaseSourceSignal<unknown>) {\n      const receiverIDs = _signalsReceiversMap.get(signal);\n      receiverIDs?.forEach((receiverID) => {\n        const receiver = _receivers.get(receiverID);\n        if (!receiver)\n          throw `WTF! No receiver found for the receiver ID - ${receiverID}?`;\n\n        receiver.run();\n      });\n    },\n  };\n\n  return signalsReceptionManager;\n})();",
-        "parameters": [],
-        "typeParameters": [],
-        "tsdoc": {
-          "title": "Coordinates initial effect dependency collection and synchronous source writes.",
-          "summary": "The connector records source signals read while installing a receiver, then\ninvokes each recorded receiver when that source signal changes.",
-          "remarks": [
-            "- Dependencies are captured only during addReceiver().\n- Repeated reads of one signal by a receiver register one receiver identifier.\n- Receivers run synchronously in insertion order for each source signal."
-          ],
-          "examples": [
-            "```typescript\nconst count = signal(0);\neffect(() => count.value);\ncount.value = 1;\n```"
-          ],
-          "params": [],
-          "returns": [],
-          "see": [
-            "{@link effect} - Adds receivers through this manager.",
-            "{@link BaseSourceSignal} - The signal shape that triggers receivers."
-          ],
-          "template": [],
-          "deprecated": []
-        },
-        "sourcePath": "src/_core/signals-reception-manager.ts"
-      },
-      {
         "name": "deadZone",
         "kind": "const",
         "filePath": "src/_core/dead-zone.ts",
@@ -40,7 +9,7 @@
         "isExported": true,
         "exportKind": "named",
         "category": "core",
-        "signature": "export const deadZone = <T>(callbackWithSignals: () => T): T => {\n  return ConnectionsManager.ignoreReceiver(callbackWithSignals);\n};",
+        "signature": "export const deadZone = <T>(callbackWithSignals: () => T): T => {\n  return ConnectionsManager.ignoreSignalsRegistration(callbackWithSignals);\n};",
         "parameters": [
           {
             "name": "callbackWithSignals",
@@ -91,11 +60,11 @@
         "isExported": true,
         "exportKind": "named",
         "category": "core",
-        "signature": "export const derive = <T>(\n  signalCatcherFn: () => T,\n  nonNullInitialValue?: NonNullable<T>,\n): DerivedSignal<T> => {\n  let derivedSignal: BaseDerivedSignal<T> = {\n    get type(): SignalType {\n      return \"derived-signal\";\n    },\n\n    get nonReactiveValue() {\n      return deadZone(signalCatcherFn);\n    },\n\n    get value(): T {\n      return signalCatcherFn();\n    },\n  };\n\n  Object.assign(derivedSignal, getGenericMethods<T>(derivedSignal as any));\n  Object.assign(\n    derivedSignal,\n    getNonMutatingDataMethods<T>(derivedSignal as any, nonNullInitialValue),\n  );\n\n  return derivedSignal as DerivedSignal<T>;\n};",
+        "signature": "export const derive = <T>(\n  signalCatcherFn: (previousValue: T | undefined) => T,\n  nonNullInitialValue?: NonNullable<T>,\n): DerivedSignal<T> => {\n  const _baseSourceSignal = signal<T>(undefined as T);\n  const _receiver = effect(() => {\n    _baseSourceSignal.value = signalCatcherFn(\n      _baseSourceSignal.nonReactiveValue,\n    );\n  });\n\n  let derivedSignal: BaseDerivedSignal<T> = {\n    get type(): SignalType {\n      return \"derived-signal\";\n    },\n\n    get prevValue(): T | undefined {\n      return _baseSourceSignal.prevValue;\n    },\n\n    get nonReactiveValue(): T {\n      return _baseSourceSignal.nonReactiveValue;\n    },\n\n    get value(): T {\n      return _baseSourceSignal.value;\n    },\n\n    dispose() {\n      _receiver.dispose();\n    },\n  };\n\n  Object.assign(derivedSignal, getGenericMethods<T>(derivedSignal as any));\n  Object.assign(\n    derivedSignal,\n    getNonMutatingDataMethods<T>(derivedSignal as any, nonNullInitialValue),\n  );\n\n  return derivedSignal as DerivedSignal<T>;\n};",
         "parameters": [
           {
             "name": "signalCatcherFn",
-            "type": "() => T",
+            "type": "(previousValue: T | undefined) => T",
             "optional": false
           },
           {
@@ -108,10 +77,10 @@
           "T"
         ],
         "tsdoc": {
-          "title": "Creates a read-only lazy signal from a value-catching function.",
-          "summary": "The returned signal invokes the catcher when its value getter is read and\nattaches generic and selected non-mutating data-specific helpers.",
+          "title": "Creates a read-only eagerly maintained signal from a value-catching function.",
+          "summary": "The returned signal invokes the catcher immediately, stores its result, and\nattaches generic and selected non-mutating data-specific helpers.",
           "remarks": [
-            "- The signal has no cached value or independent update lifecycle.\n- Reading value evaluates the catcher synchronously and propagates its errors.\n- Source-signal reads inside the catcher are visible while an effect is installed.\n- Reading nonReactiveValue evaluates the catcher without collecting its source reads."
+            "- The catcher receives the most recently stored derived value. It is undefined\n  only during the initial computation.\n- Source-signal reads during the initial catch are fixed dependencies for future recomputation.\n- Reading value and nonReactiveValue does not invoke the catcher.\n- dispose() stops the internal effect and freezes the stored value."
           ],
           "examples": [
             "```typescript\nconst count = signal(2);\nconst doubled = derive(() => count.value * 2);\nconsole.log(doubled.value); // 4\n```"
@@ -119,7 +88,7 @@
           "params": [
             {
               "name": "signalCatcherFn",
-              "description": "The function invoked by the derived value getter."
+              "description": "The function invoked initially and on captured dependency updates."
             },
             {
               "name": "nonNullInitialValue",
@@ -127,7 +96,7 @@
             }
           ],
           "returns": [
-            "A read-only derived signal whose value is produced by the catcher."
+            "A read-only derived signal containing the most recently computed value."
           ],
           "see": [
             "{@link DerivedSignal} - The returned read-only contract.",
@@ -151,7 +120,7 @@
         "isExported": true,
         "exportKind": "named",
         "category": "core",
-        "signature": "export const effect = (signalsCatcher: () => void) => {\n  const _id = IdGenerator.newID;\n\n  const receiver: Receiver = {\n    get id(): number {\n      return _id;\n    },\n\n    run(): void {\n      signalsCatcher();\n    },\n\n    dispose(): void {\n      ConnectionsManager.removeReceiver(receiver);\n    },\n  } as const;\n\n  ConnectionsManager.addReceiver(receiver);\n\n  return receiver;\n};",
+        "signature": "export const effect = (signalsCatcher: () => void): Receiver => {\n  const _id = IdGenerator.newID;\n\n  const receiver: Receiver = {\n    get id(): number {\n      return _id;\n    },\n\n    run(): void {\n      signalsCatcher();\n    },\n\n    dispose(): void {\n      ConnectionsManager.removeReceiver(receiver);\n    },\n  } as const;\n\n  ConnectionsManager.addReceiver(receiver);\n\n  return receiver;\n};",
         "parameters": [
           {
             "name": "signalsCatcher",
@@ -176,7 +145,7 @@
             }
           ],
           "returns": [
-            "The receiver that the reception manager uses for future synchronous runs."
+            "The receiver that the connections manager uses for future synchronous runs."
           ],
           "see": [
             "{@link Receiver} - The returned effect receiver.",
@@ -312,7 +281,7 @@
           "title": "Creates combined methods for array source signals.",
           "summary": "Combines a nested `.mutate` object with the direct non-mutating projections\nused by an array source signal.",
           "remarks": [
-            "- Mutation methods are available under `.mutate`\n- Non-mutating methods are direct members of the returned object\n- Every projection returns a lazy `DerivedSignal`."
+            "- Mutation methods are available under `.mutate`\n- Non-mutating methods are direct members of the returned object\n- Every projection returns an eagerly maintained `DerivedSignal`."
           ],
           "examples": [
             "```typescript\nconst items = signal([1, 2]);\nconst methods = getArrayMutatingAndNonMutatingMethods<number[]>(items);\nmethods.mutate.push(3);\nconsole.log(methods.length().value); // 3\n```"
@@ -414,7 +383,7 @@
           "title": "Creates combined non-mutating methods for array signals.",
           "summary": "Merges the intrinsic array projections with the library-specific projections\ninto the non-mutating method surface attached to array signals.",
           "remarks": [
-            "- Every projection returns a lazy `DerivedSignal`.\n- This bundle does not include mutators"
+            "- Every projection returns an eagerly maintained `DerivedSignal`.\n- This bundle does not include mutators"
           ],
           "examples": [
             "```typescript\nconst items = signal([1, 2, 3]);\nconst methods = getArrayNonMutatingMethods<number[]>(items);\nconsole.log(methods.lastItem().value); // 3\n```"
@@ -551,7 +520,7 @@
         ],
         "tsdoc": {
           "title": "Creates logical methods for signals.",
-          "summary": "Builds the `or`, `is`, and `if` method groups shared by supported signal\nvalues. Every comparison result is a lazy derived signal.",
+          "summary": "Builds the `or`, `is`, and `if` method groups shared by supported signal\nvalues. Every comparison result is an eagerly maintained derived signal.",
           "remarks": [
             "- `or()` selects its alternative for every JavaScript-falsy input value\n- `is` methods return boolean signals returned as derived signals\n- `if` methods return a `then()` selector for reactive conditional values\n- Length comparisons are exposed for strings and arrays\n- Measure comparisons are exposed for numbers\n- All inputs produce `DerivedSignal` results; inputs produce `DerivedSignal` results"
           ],
@@ -856,7 +825,7 @@
           "title": "Creates combined methods for a plain-object source signal.",
           "summary": "Places shallow mutation under `.mutate` and exposes keys and property\nprojections as direct methods on the returned object.",
           "remarks": [
-            "- Mutation is available only through `.mutate.set()`\n- Non-mutating projections are direct members\n- Every projection returns a lazy `DerivedSignal`."
+            "- Mutation is available only through `.mutate.set()`\n- Non-mutating projections are direct members\n- Every projection returns an eagerly maintained `DerivedSignal`."
           ],
           "examples": [
             "```typescript\nconst user = signal({ name: \"John\", age: 30 });\nconst methods = getObjectMutatingAndNonMutatingMethods(user);\nmethods.mutate.set({ age: 31 });\nconsole.log(methods.get(\"name\").value); // \"John\"\n```"
@@ -959,7 +928,7 @@
           "title": "Creates non-mutating projections for a plain-object signal.",
           "summary": "Exposes the object's keys, individual properties, and a snapshot of property\nsignal objects while preserving the derived result type of the input.",
           "remarks": [
-            "- `keys()` and `get()` project through the current object value\n- `props()` creates one property signal for each key present when it is called\n- Every projection returns a lazy `DerivedSignal`."
+            "- `keys()` and `get()` project through the current object value\n- `props()` creates one property signal for each key present when it is called\n- Every projection returns an eagerly maintained `DerivedSignal`."
           ],
           "examples": [
             "```typescript\nconst user = signal({ name: \"John\", age: 30 });\nconst methods = getObjectNonMutatingMethods<typeof user.value>(user);\nconst name = methods.get(\"name\");\nconsole.log(name.value); // \"John\"\n```"
@@ -1096,7 +1065,7 @@
           "title": "Creates combined methods for a string source signal.",
           "summary": "Places string mutation methods under `.mutate` and exposes non-mutating\nstring projections as direct methods on the returned object.",
           "remarks": [
-            "- Mutation methods are available only under `.mutate`\n- Non-mutating projection methods are direct members\n- Every projection returns a lazy `DerivedSignal`."
+            "- Mutation methods are available only under `.mutate`\n- Non-mutating projection methods are direct members\n- Every projection returns an eagerly maintained `DerivedSignal`."
           ],
           "examples": [
             "```typescript\nconst text = signal(\"hello\");\nconst methods = getStringSignalMethods(text);\nmethods.mutate.toUpperCase();\nconsole.log(methods.length().value); // 5\n```"
@@ -1246,7 +1215,7 @@
         "isExported": true,
         "exportKind": "named",
         "category": "core",
-        "signature": "export const signal = <T>(\n  initialValue: T,\n  nonNullInitialValue?: NonNullable<T>,\n): SourceSignal<T> => {\n  const _id = IdGenerator.newID;\n  let _prevValue: T | undefined = undefined;\n  let _value: T = newVal(initialValue);\n\n  const sourceSignal: BaseSourceSignal<T> = {\n    get type(): SignalType {\n      return \"source-signal\";\n    },\n\n    get id(): number {\n      return _id;\n    },\n\n    get prevValue(): T | undefined {\n      return _prevValue;\n    },\n\n    get nonReactiveValue() {\n      return _value;\n    },\n\n    get value(): T {\n      ConnectionsManager.connectWithNewReceiver(\n        sourceSignal as BaseSourceSignal<unknown>,\n      );\n      return newVal(_value);\n    },\n\n    set value(newSignalValue: T) {\n      if (newSignalValue === _value) {\n        console.warn(`Unncessary assignment to sourceSignal with ID - ${_id}`);\n        return;\n      }\n\n      _prevValue = _value;\n      _value = newSignalValue;\n      ConnectionsManager.runReceivers(\n        sourceSignal as BaseSourceSignal<unknown>,\n      );\n    },\n\n    mutateWith(mutatedSignalEvaluator: (oldSignalValue: T) => T) {\n      const updatedValue = mutatedSignalEvaluator(_value);\n      this.value = updatedValue;\n    },\n  };\n\n  Object.assign(sourceSignal, getGenericMethods<T>(sourceSignal as any));\n  Object.assign(\n    sourceSignal,\n    getMutatingAndNonMutatingDataMethods<T>(\n      sourceSignal as any,\n      nonNullInitialValue,\n    ),\n  );\n\n  return sourceSignal as SourceSignal<T>;\n};",
+        "signature": "export const signal = <T>(\n  initialValue: T,\n  nonNullInitialValue?: NonNullable<T>,\n): SourceSignal<T> => {\n  const _id = IdGenerator.newID;\n  let _prevValue: T | undefined = undefined;\n  let _value: T = newVal(initialValue);\n\n  const sourceSignal: BaseSourceSignal<T> = {\n    get type(): SignalType {\n      return \"source-signal\";\n    },\n\n    get id(): number {\n      return _id;\n    },\n\n    get prevValue(): T | undefined {\n      return _prevValue;\n    },\n\n    get nonReactiveValue() {\n      return _value;\n    },\n\n    get value(): T {\n      ConnectionsManager.notifySignalRegistration(sourceSignal as any);\n      return newVal(_value);\n    },\n\n    set value(newSignalValue: T) {\n      if (newSignalValue === _value) {\n        console.warn(`Unncessary assignment to sourceSignal with ID - ${_id}`);\n        return;\n      }\n\n      _prevValue = _value;\n      _value = newSignalValue;\n      ConnectionsManager.notifySignalUpdate(sourceSignal as any);\n    },\n\n    mutateWith(mutatedSignalEvaluator: (oldSignalValue: T) => T) {\n      const updatedValue = mutatedSignalEvaluator(_value);\n      this.value = updatedValue;\n    },\n  };\n\n  Object.assign(sourceSignal, getGenericMethods<T>(sourceSignal as any));\n  Object.assign(\n    sourceSignal,\n    getMutatingAndNonMutatingDataMethods<T>(\n      sourceSignal as any,\n      nonNullInitialValue,\n    ),\n  );\n\n  return sourceSignal as SourceSignal<T>;\n};",
         "parameters": [
           {
             "name": "initialValue",
@@ -1326,9 +1295,9 @@
         ],
         "tsdoc": {
           "title": "Computes a derived signal from signal-capable function arguments.",
-          "summary": "Every argument is unwrapped with `value()` inside a derived value getter, then\npassed to `computerFn` in order whenever the returned value is read.",
+          "summary": "Every argument is unwrapped with `value()` inside an eagerly maintained\nderived signal, then passed to `computerFn` in order during computation.",
           "remarks": [
-            "- The computation runs when the returned derived value is read.\n- Plain arguments are read as supplied; signals are unwrapped at read time.\n- Source-signal reads can be collected when the derived value is read during effect installation.\n- Errors thrown by `computerFn` propagate synchronously."
+            "- The computation runs immediately and on updates from initially captured signals.\n- Plain arguments are read as supplied; signals are unwrapped during computation.\n- Reading the result returns its stored value without calling `computerFn` again.\n- Errors thrown by `computerFn` propagate synchronously."
           ],
           "examples": [
             "```typescript\nconst left = signal(2);\nconst right = signal(3);\nconst total = compute((a: number, b: number) => a + b, left, right);\nright.value = 5;\nconsole.log(total.value); // 7\n```"
@@ -1347,7 +1316,7 @@
             "A derived signal containing the function result."
           ],
           "see": [
-            "{@link derive} - Provides the lazy derived value getter.",
+            "{@link derive} - Provides the eagerly maintained derived signal.",
             "{@link value} - Unwraps each argument.",
             "{@link MaybeSignalValues} - Describes accepted argument tuples."
           ],
@@ -1362,14 +1331,65 @@
         "sourcePath": "src/api/compute.ts"
       },
       {
-        "name": "nullable",
+        "name": "dispose",
         "kind": "const",
-        "filePath": "src/api/nullable.ts",
+        "filePath": "src/api/dispose.ts",
         "isCallable": true,
         "isExported": true,
         "exportKind": "named",
         "category": "api",
-        "signature": "export const nullable = <I extends MaybeSignal<unknown>>(\n  input: I &\n    (Extract<PlainValue<I>, Primitive> extends never ? never : unknown),\n): GenericMethods<PlainValue<I>> =>\n  getGenericMethods<PlainValue<I>>(input as MaybeSignal<PlainValue<I>>);",
+        "signature": "export const dispose = <T extends any[]>(\n  ...derivedSignalsOrReceivers: {\n    [K in keyof T]: DerivedSignal<T[K]> | Receiver;\n  }\n): void => {\n  derivedSignalsOrReceivers.forEach((derSigOrEff) => derSigOrEff.dispose());\n};",
+        "parameters": [
+          {
+            "name": "derivedSignalsOrReceivers",
+            "type": "{\n    [K in keyof T]: DerivedSignal<T[K]> | Receiver;\n  }",
+            "optional": false
+          }
+        ],
+        "typeParameters": [
+          "T"
+        ],
+        "tsdoc": {
+          "title": "Disposes several effect receivers and derived signals in one call.",
+          "summary": "Each supplied disposable is stopped in argument order.",
+          "remarks": [
+            "- Each argument receives its own `dispose()` call in argument order.\n- The helper inherits the idempotent disposal behavior of its arguments.\n- Disposing a derived signal stops its internal recomputation effect."
+          ],
+          "examples": [
+            "```typescript\nconst source = signal(1);\nconst doubled = derive(() => source.value * 2);\nconst logger = effect(() => console.log(doubled.value));\ndispose(doubled, logger);\n```"
+          ],
+          "params": [
+            {
+              "name": "derivedSignalsOrReceivers",
+              "description": "Disposable effects or derived signals."
+            }
+          ],
+          "returns": [
+            "Nothing."
+          ],
+          "see": [
+            "{@link DerivedSignal.dispose} - Stops a derived signal's updates.",
+            "{@link Receiver.dispose} - Stops an effect receiver's updates."
+          ],
+          "template": [
+            {
+              "name": "T",
+              "description": "The value types carried by the supplied derived signals."
+            }
+          ],
+          "deprecated": []
+        },
+        "sourcePath": "src/api/dispose.ts"
+      },
+      {
+        "name": "maybePlain",
+        "kind": "const",
+        "filePath": "src/api/maybe-plain.ts",
+        "isCallable": true,
+        "isExported": true,
+        "exportKind": "named",
+        "category": "api",
+        "signature": "export const maybePlain = <I extends MaybeSignal<unknown>>(\n  input: I &\n    (Extract<PlainValue<I>, Primitive> extends never ? never : unknown),\n): GenericMethods<PlainValue<I>> =>\n  getGenericMethods<PlainValue<I>>(input as MaybeSignal<PlainValue<I>>);",
         "parameters": [
           {
             "name": "input",
@@ -1381,13 +1401,13 @@
           "I"
         ],
         "tsdoc": {
-          "title": "Adds generic logical helpers to a nullable primitive input.",
+          "title": "Adds generic logical helpers to a plain or signal-wrapped primitive input.",
           "summary": "The wrapper exposes `or`, `is`, and `if` operations while preserving the\nderived result helpers for any accepted plain value or signal input.",
           "remarks": [
-            "- The type constraint rejects inputs with no primitive member.\n- `or` uses JavaScript truthiness, not only nullishness.\n- Comparisons accept signal-capable operands.\n- Result helpers are lazy derived signals, including for plain inputs."
+            "- The type constraint rejects inputs with no primitive member.\n- `or` uses JavaScript truthiness, not only nullishness.\n- Comparisons accept signal-capable operands.\n- Result helpers are eagerly maintained derived signals, including for plain inputs."
           ],
           "examples": [
-            "```typescript\nconst count = signal<number | null>(null);\nconst label = nullable(count).if.falsy().then(\"missing\", \"present\");\ncount.value = 1;\nconsole.log(label.value); // \"present\"\n```"
+            "```typescript\nconst count = signal<number | null>(null);\nconst label = maybePlain(count).if.falsy().then(\"missing\", \"present\");\ncount.value = 1;\nconsole.log(label.value); // \"present\"\n```"
           ],
           "params": [
             {
@@ -1411,7 +1431,7 @@
           ],
           "deprecated": []
         },
-        "sourcePath": "src/api/nullable.ts"
+        "sourcePath": "src/api/maybe-plain.ts"
       },
       {
         "name": "promstates",
@@ -1421,7 +1441,7 @@
         "isExported": true,
         "exportKind": "named",
         "category": "api",
-        "signature": "export const promstates = <R, Args extends Array<any>, I>(\n  promiseFn: (...args: Args) => Promise<R>,\n  initialValue?: I,\n  ultimately?: () => void,\n): readonly [\n  /**\n   * Promise runner method which takes the same arguments as the original promise\n   * but returns `Promise<void>`.\n   */\n  (...args: Args) => Promise<void>,\n  /** Derived signal of result of the promise. */\n  DerivedSignal<unknown extends I ? R | undefined : R | I>,\n  /** Derived signal of promise error. */\n  DerivedSignal<Error | undefined>,\n  /** Derived signal of whether promise is currently running or not */\n  DerivedSignal<boolean>,\n] => {\n  type PromState = {\n    isRunning: boolean;\n    result: unknown extends I ? R | undefined : R | I;\n    error: Error | undefined;\n  };\n  const state = signal<PromState>({\n    isRunning: false,\n    result: (initialValue || undefined) as unknown extends I\n      ? R | undefined\n      : R | I,\n    error: undefined,\n  });\n\n  const runPromise = (...args: Args) => {\n    state.value = {\n      ...state.value,\n      isRunning: true,\n      error: undefined,\n    };\n\n    return promiseFn(...args)\n      .then((res) => {\n        state.value = {\n          isRunning: false,\n          result: res,\n          error: undefined,\n        };\n      })\n      .catch((e) => {\n        const prevResult = state.value.result;\n        /**\n         * Result preservation on error:\n         *\n         * The result is NOT set to undefined or initialValue when an error occurs.\n         * This design choice ensures that if the promise is run multiple times and\n         * fails on the nth run, the result from the (n-1)th successful run is preserved.\n         *\n         * Best practice: Always check error first while using promstates.\n         * Rationale: If the promise fails on a subsequent run, the previous successful\n         * result remains intact and accessible, while the error signal is updated with\n         * the current error.\n         *\n         * Note: The error signal is always reset to undefined on success. There is no\n         * value in preserving the error from the last run when a new success occurs.\n         */\n        state.value = {\n          isRunning: false,\n          result: prevResult,\n          error: e,\n        };\n      })\n      .finally(ultimately);\n  };\n\n  const { isRunning, result, error } = state.props();\n  return [runPromise, result, error, isRunning] as const;\n};",
+        "signature": "export const promstates = <R, Args extends Array<any>, I>(\n  promiseFn: (...args: Args) => Promise<R>,\n  initialValue?: I,\n  ultimately?: () => void,\n): readonly [\n  /**\n   * Promise runner method which takes the same arguments as the original promise\n   * but returns `Promise<void>`.\n   */\n  (...args: Args) => Promise<void>,\n  /** Derived signal of result of the promise. */\n  DerivedSignal<unknown extends I ? R | undefined : R | I>,\n  /** Derived signal of promise error. */\n  DerivedSignal<Error | undefined>,\n  /** Derived signal of whether promise is currently running or not */\n  DerivedSignal<boolean>,\n] => {\n  type PromState = {\n    isRunning: boolean;\n    result: unknown extends I ? R | undefined : R | I;\n    error: Error | undefined;\n  };\n  const state = signal<PromState>({\n    isRunning: false,\n    result: (initialValue ?? undefined) as unknown extends I\n      ? R | undefined\n      : R | I,\n    error: undefined,\n  });\n\n  const runPromise = (...args: Args) => {\n    state.value = {\n      ...state.value,\n      isRunning: true,\n      error: undefined,\n    };\n\n    return promiseFn(...args)\n      .then((res) => {\n        state.value = {\n          isRunning: false,\n          result: res,\n          error: undefined,\n        };\n      })\n      .catch((e) => {\n        const prevResult = state.value.result;\n        /**\n         * Result preservation on error:\n         *\n         * The result is NOT set to undefined or initialValue when an error occurs.\n         * This design choice ensures that if the promise is run multiple times and\n         * fails on the nth run, the result from the (n-1)th successful run is preserved.\n         *\n         * Best practice: Always check error first while using promstates.\n         * Rationale: If the promise fails on a subsequent run, the previous successful\n         * result remains intact and accessible, while the error signal is updated with\n         * the current error.\n         *\n         * Note: The error signal is always reset to undefined on success. There is no\n         * value in preserving the error from the last run when a new success occurs.\n         */\n        state.value = {\n          isRunning: false,\n          result: prevResult,\n          error: e,\n        };\n      })\n      .finally(ultimately);\n  };\n\n  const { isRunning, result, error } = state.props();\n  return [runPromise, result, error, isRunning] as const;\n};",
         "parameters": [
           {
             "name": "promiseFn",
@@ -1577,10 +1597,10 @@
         ],
         "typeParameters": [],
         "tsdoc": {
-          "title": "Builds a lazy derived string from a tagged-template expression list.",
+          "title": "Builds an eagerly maintained derived string from a tagged-template expression list.",
           "summary": "The tag creates a derived signal, evaluates deferred functions, reads signal\nvalues, replaces nullish results with an empty string, and stringifies every\nremaining expression in template order.",
           "remarks": [
-            "- Function expressions are called with no arguments.\n- Source-signal reads inside interpolation can be collected during effect installation.\n- Plain expressions are evaluated each time the derived value is read.\n- A throwing function or `toString()` call propagates its error."
+            "- Function expressions are called with no arguments.\n- Source-signal reads inside interpolation become fixed dependencies of the template signal.\n- Plain expressions are evaluated during each template computation, not on value reads.\n- A throwing function or `toString()` call propagates its error."
           ],
           "examples": [
             "```typescript\nconst name = signal(\"World\");\nconst greeting = tmpl`Hello ${name}!`;\nname.value = \"Ada\";\nconsole.log(greeting.value); // \"Hello Ada!\"\n```"
@@ -1600,7 +1620,7 @@
           ],
           "see": [
             "{@link StringSignalDeriverTemplateExpressions} - Describes placeholders.",
-            "{@link derive} - Provides the lazy derived value getter.",
+            "{@link derive} - Provides the eagerly maintained derived signal.",
             "{@link DerivedSignal} - Describes the return value."
           ],
           "template": [],
@@ -1952,7 +1972,7 @@
           ],
           "see": [
             "{@link SourceSignal} - The corresponding structural type.",
-            "{@link valueIsDerivedSignal} - Checks the computed-live discriminator.",
+            "{@link valueIsDerivedSignal} - Checks the derived-signal discriminator.",
             "{@link valueIsSignal} - Checks either live discriminator."
           ],
           "template": [],
@@ -2162,16 +2182,16 @@
         "isExported": true,
         "exportKind": "named",
         "category": "core",
-        "signature": "export type BaseDerivedSignal<T> = {\n  readonly type: SignalType;\n  get nonReactiveValue(): T;\n  get value(): T;\n};",
+        "signature": "export type BaseDerivedSignal<T> = {\n  get type(): SignalType;\n  get prevValue(): T | undefined;\n  get nonReactiveValue(): T;\n  get value(): T;\n  readonly dispose: () => void;\n};",
         "parameters": [],
         "typeParameters": [
           "T"
         ],
         "tsdoc": {
           "title": "Defines the common runtime shape of a read-only derived signal.",
-          "summary": "A derived signal evaluates its catcher whenever its value is read and exposes\nthe same runtime discriminator as other derived projections.",
+          "summary": "A derived signal stores the latest value computed by its catcher and exposes\nthe same runtime discriminator as other derived projections.",
           "remarks": [
-            "- Derived signals have no identifier, previous value, or setter.\n- Reads can connect source signals accessed by the catcher to an installing effect.\n- nonReactiveValue evaluates the catcher without connecting those source reads."
+            "- Derived signals have no identifier or setter.\n- prevValue is initially undefined and holds the preceding stored computed value.\n- nonReactiveValue reads the stored computed value without dependency collection."
           ],
           "examples": [
             "```typescript\nconst doubled: BaseDerivedSignal<number> = derive(() => 2);\nconsole.log(doubled.value); // 2\n```"
@@ -2200,7 +2220,7 @@
         "isExported": true,
         "exportKind": "named",
         "category": "core",
-        "signature": "export type BaseSourceSignal<T> = {\n  readonly type: SignalType;\n  readonly id: number;\n  readonly prevValue: T | undefined;\n  get nonReactiveValue(): T;\n  get value(): T;\n  set value(newValue: T);\n  mutateWith(mutatedSignalEvaluator: (old: T) => T): void;\n};",
+        "signature": "export type BaseSourceSignal<T> = {\n  get type(): SignalType;\n  get id(): number;\n  get prevValue(): T | undefined;\n  get nonReactiveValue(): T;\n  get value(): T;\n  set value(newValue: T);\n  mutateWith(mutatedSignalEvaluator: (old: T) => T): void;\n};",
         "parameters": [],
         "typeParameters": [
           "T"
@@ -2374,6 +2394,37 @@
         "sourcePath": "src/_core/data-specific-methods/types.ts"
       },
       {
+        "name": "ConnectionsManager",
+        "kind": "type",
+        "filePath": "src/_core/connections-manager.ts",
+        "isCallable": false,
+        "isExported": true,
+        "exportKind": "named",
+        "category": "core",
+        "signature": "export type ConnectionsManager = {\n  readonly addReceiver: (receiver: Receiver) => void;\n  readonly removeReceiver: (receiver: Receiver) => void;\n  readonly ignoreSignalsRegistration: <T>(callbackWithSignals: () => T) => T;\n  readonly notifySignalRegistration: (signal: SourceSignal<unknown>) => void;\n  readonly notifySignalUpdate: (signal: SourceSignal<unknown>) => void;\n};",
+        "parameters": [],
+        "typeParameters": [],
+        "tsdoc": {
+          "title": "Defines the internal registry used to connect source-signal reads to effects.",
+          "summary": "Source-signal getters register the effect currently being installed, and\nsource-signal writes synchronously invoke each registered receiver.",
+          "remarks": [
+            "- This is exported for the core implementation; applications normally use effect() instead.\n- Dependency registration occurs only while an effect is first installed."
+          ],
+          "examples": [
+            "```typescript\ndeclare const connectionsManager: ConnectionsManager;\nconnectionsManager.notifySignalUpdate(signal(1));\n```"
+          ],
+          "params": [],
+          "returns": [],
+          "see": [
+            "{@link Receiver} - The callback registered for source-signal changes.",
+            "{@link effect} - The public API that installs a receiver."
+          ],
+          "template": [],
+          "deprecated": []
+        },
+        "sourcePath": "src/_core/connections-manager.ts"
+      },
+      {
         "name": "DataMethodValue",
         "kind": "type",
         "filePath": "src/_core/data-specific-methods/types.ts",
@@ -2425,10 +2476,10 @@
           "T"
         ],
         "tsdoc": {
-          "title": "Represents a read-only, lazily evaluated signal with helper methods.",
-          "summary": "A derived signal runs its catcher only when its value getter is read and\nexposes generic and selected non-mutating data-specific helpers.",
+          "title": "Represents a read-only, eagerly maintained signal with helper methods.",
+          "summary": "A derived signal computes its initial value immediately, recomputes when its\ncaptured dependencies change, and exposes generic and selected non-mutating\ndata-specific helpers.",
           "remarks": [
-            "- Derived signals do not store a previous value or expose a setter.\n- The catcher is invoked for each value read; its result is not cached.\n- Reads performed by the catcher can connect source signals to an installing effect.\n- nonReactiveValue invokes the catcher without connecting its source reads."
+            "- Derived signals expose the preceding stored computed value through prevValue.\n- The catcher runs at construction and on captured source-signal updates, not on reads.\n- The current and previous computed values are stored internally.\n- dispose() stops future recomputation."
           ],
           "examples": [
             "```typescript\nconst count = signal(1);\nconst doubled: DerivedSignal<number> = derive(() => count.value * 2);\nconsole.log(doubled.value); // 2\n```"
@@ -3134,7 +3185,7 @@
           "returns": [],
           "see": [
             "{@link Signal} - Signal kinds preserved by this transformation.",
-            "{@link nullable} - Adds generic helpers to nullable primitive inputs."
+            "{@link maybePlain} - Adds generic helpers to maybe-plain primitive inputs."
           ],
           "template": [
             {
@@ -3468,14 +3519,14 @@
         "isExported": true,
         "exportKind": "named",
         "category": "core",
-        "signature": "export type Receiver = {\n  readonly id: number;\n  readonly run: () => void;\n  readonly dispose: () => void;\n};",
+        "signature": "export type Receiver = {\n  get id(): number;\n  readonly run: () => void;\n  readonly dispose: () => void;\n};",
         "parameters": [],
         "typeParameters": [],
         "tsdoc": {
           "title": "Represents a synchronous effect receiver.",
           "summary": "A receiver has a stable identifier and invokes its effect callback through\nrun() when a connected source signal is written.",
           "remarks": [
-            "- dispose() removes the receiver from all captured source-signal dependencies.\n- dispose() is idempotent; run() remains available for a manual non-collecting run.\n- The reception manager uses id to deduplicate repeated reads of one source signal."
+            "- dispose() removes the receiver from all captured source-signal dependencies.\n- dispose() is idempotent; run() remains available for a manual non-collecting run.\n- The connections manager uses receiver identity to deduplicate repeated reads of one source signal."
           ],
           "examples": [
             "```typescript\ndeclare const receiver: Receiver;\nreceiver.run();\nreceiver.dispose();\n```"
@@ -3483,7 +3534,7 @@
           "params": [],
           "returns": [],
           "see": [
-            "{@link SignalsReceptionManager} - Stores and invokes receivers.",
+            "{@link ConnectionsManager} - Stores and invokes receivers.",
             "{@link effect} - Creates receivers from callbacks."
           ],
           "template": [],
@@ -3525,69 +3576,6 @@
               "description": "The value type exposed by the signal."
             }
           ],
-          "deprecated": []
-        },
-        "sourcePath": "src/_core/_types.ts"
-      },
-      {
-        "name": "SignalConnector",
-        "kind": "type",
-        "filePath": "src/_core/_types.ts",
-        "isCallable": false,
-        "isExported": true,
-        "exportKind": "named",
-        "category": "core",
-        "signature": "export type SignalConnector = SignalsReceptionManager;",
-        "parameters": [],
-        "typeParameters": [],
-        "tsdoc": {
-          "title": "Preserves the legacy reception-manager type name.",
-          "summary": "SignalConnector is an exact alias of SignalsReceptionManager for existing\nconsumers that imported the former public type.",
-          "remarks": [
-            "- This alias exists only for source compatibility.\n- New code should use SignalsReceptionManager."
-          ],
-          "examples": [
-            "```typescript\ndeclare const manager: SignalConnector;\nmanager.runReceivers(signal(1));\n```"
-          ],
-          "params": [],
-          "returns": [],
-          "see": [
-            "{@link SignalsReceptionManager} - The current reception-manager type name."
-          ],
-          "template": [],
-          "deprecated": [
-            "Use {@link SignalsReceptionManager} instead."
-          ]
-        },
-        "sourcePath": "src/_core/_types.ts"
-      },
-      {
-        "name": "SignalsReceptionManager",
-        "kind": "type",
-        "filePath": "src/_core/_types.ts",
-        "isCallable": false,
-        "isExported": true,
-        "exportKind": "named",
-        "category": "core",
-        "signature": "export type SignalsReceptionManager = {\n  readonly addReceiver: (receiver: Receiver) => void;\n  readonly removeReceiver: (receiver: Receiver) => void;\n  readonly ignoreReceiver: <T>(callbackWithSignals: () => T) => T;\n  readonly connectWithNewReceiver: (signal: BaseSourceSignal<unknown>) => void;\n  readonly runReceivers: (signal: BaseSourceSignal<unknown>) => void;\n};",
-        "parameters": [],
-        "typeParameters": [],
-        "tsdoc": {
-          "title": "Defines the internal registry used to connect source-signal reads to effects.",
-          "summary": "Source-signal getters register the effect currently being installed, and\nsource-signal writes synchronously invoke each registered receiver.",
-          "remarks": [
-            "- This is exported for the core implementation; applications normally use effect() instead.\n- Dependency registration occurs only while an effect is first installed."
-          ],
-          "examples": [
-            "```typescript\ndeclare const receptionManager: SignalsReceptionManager;\nreceptionManager.runReceivers(signal(1));\n```"
-          ],
-          "params": [],
-          "returns": [],
-          "see": [
-            "{@link Receiver} - The callback registered for source-signal changes.",
-            "{@link effect} - The public API that installs a receiver."
-          ],
-          "template": [],
           "deprecated": []
         },
         "sourcePath": "src/_core/_types.ts"
@@ -4019,7 +4007,7 @@
           "title": "Describes the expression list accepted by the `tmpl` tag.",
           "summary": "Expressions may be signal objects, zero-argument deferred functions, or plain\nvalues. The broad plain-value branch intentionally permits any JavaScript value.",
           "remarks": [
-            "- Functions are invoked whenever the returned derived value is read.\n- Signal values are read when the returned derived value is read.\n- Nullish expression results are rendered as empty strings."
+            "- Functions are invoked during initial computation and captured signal updates.\n- Signal values are read during those same computations.\n- Nullish expression results are rendered as empty strings."
           ],
           "examples": [
             "```typescript\nconst expressions: StringSignalDeriverTemplateExpressions = [\n  signal(\"Ada\"),\n  () => 42,\n  null,\n];\n```"
