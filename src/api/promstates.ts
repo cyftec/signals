@@ -62,7 +62,7 @@ export const promstates = <R, Args extends Array<any>, I>(
   };
   const state = signal<PromState>({
     isRunning: false,
-    result: (initialValue || undefined) as unknown extends I
+    result: (initialValue ?? undefined) as unknown extends I
       ? R | undefined
       : R | I,
     error: undefined,
