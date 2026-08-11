@@ -1,6 +1,6 @@
 # @cyftec/signals — Project and Contributor Guide
 
-`@cyftec/signals` is a TypeScript signal library with mutable source values, lazy derived values, synchronous effects, and data-specific helpers. This is the repository's canonical technical reference: it combines the behavioral contract, API inventory, architecture notes, type contract, and contributor instructions. `README.md` is the permanent GitHub-facing quick guide; community policies and contribution templates live in their conventional repository locations.
+`@cyftec/signals` is a TypeScript signal library with mutable source values, eagerly maintained derived values, synchronous effects, and data-specific helpers. This is the repository's canonical technical reference: it combines the behavioral contract, API inventory, architecture notes, type contract, and contributor instructions. `README.md` is the permanent GitHub-facing quick guide; community policies and contribution templates live in their conventional repository locations.
 
 ## Contents
 
@@ -38,7 +38,7 @@ count.value = 2;
 
 `deadZone(callback)` evaluates a callback without recording its signal reads for the effect currently being installed. `nonReactiveValue` offers the same non-collecting read for one source or derived signal.
 
-`derive()` creates a lazy value getter. Its catcher runs whenever `.value` is read; it does not cache a result, keep a previous value, or independently notify dependents.
+`derive()` computes immediately, stores its result, and recomputes synchronously when a source read during its initial computation changes. Its `.value` and `.nonReactiveValue` getters read the stored result; they do not invoke the catcher. `prevValue` exposes the preceding stored result and `dispose()` stops future recomputation.
 
 Source signals receive generic logical helpers and a data-method family chosen from the initial value (or an optional non-null hint):
 
@@ -57,9 +57,9 @@ text.value = "  hello  ";
 console.log(text.trim().value); // "hello"
 ```
 
-Arrays, plain objects, strings, numbers, and source booleans receive their respective helpers. Mutators exist only on source signals under `.mutate`; projections always return a lazy `DerivedSignal`.
+Arrays, plain objects, strings, numbers, and source booleans receive their respective helpers. Mutators exist only on source signals under `.mutate`; projections return eagerly maintained `DerivedSignal` values.
 
-Main exports are `signal`, `derive`, `effect`, `deadZone`, `compute`, `tmpl`, `receive`, `transmit`, `promstates`, `nullable`, `value`, `getPlainMethodParams`, and the runtime signal guards.
+Main exports are `signal`, `derive`, `effect`, `deadZone`, `dispose`, `compute`, `tmpl`, `receive`, `transmit`, `promstates`, `maybePlain`, `value`, `getPlainMethodParams`, and the runtime signal guards.
 
 ## Semantic contract
 
@@ -87,11 +87,13 @@ The optional second argument selects a data-method family for a nullish initial 
 `derive(catcher, nonNullInitialValue?)` returns a read-only `DerivedSignal<T>`.
 
 - `type` is `"derived-signal"`.
-- Every read of `.value` invokes `catcher()` synchronously.
-- Every read of `.nonReactiveValue` invokes `catcher()` synchronously without recording the source reads it makes.
-- It has no cached value, previous value, setter, notification mechanism, or disposal API.
-- Source signals read by the catcher can register when the derived value is read during an effect's initial run.
-- Derived projections and generic helpers are also derived signals, so their work happens when their `.value` is read.
+- The catcher runs once during construction, then whenever a source captured during that initial run changes.
+- `.value` reads the current stored result and can register an installing effect against that stored result.
+- `.nonReactiveValue` reads that same stored result without registering an effect.
+- `prevValue` is initially `undefined`, then contains the preceding stored result after a changed recomputation.
+- The catcher receives the backing signal's `prevValue`; it is `undefined` for both the initial computation and first recomputation.
+- `dispose()` stops the internal effect, freezing the stored value; it is idempotent.
+- Derived projections and generic helpers are derived signals, so they compute when the helper is called and stay current through their captured dependencies.
 
 ### Effects and dependency collection
 
@@ -118,20 +120,20 @@ If one receiver disposes another while a source write is invoking receivers, a r
 
 `deadZone(callback)` temporarily suspends dependency collection for the callback. It returns the callback result and propagates its errors; collection for the surrounding effect resumes afterward, including when the callback throws. Nested dead zones are supported. The zone matters only during the immediate installation run of an effect, because later receiver runs do not collect dependencies.
 
-`source.nonReactiveValue` returns the source's stored value without effect registration. For objects and arrays this is the stored value itself, unlike `source.value`, which returns an immutable-helper copy. `derived.nonReactiveValue` evaluates its catcher inside a dead zone, so source reads reached through that catcher do not register the installing effect.
+`source.nonReactiveValue` returns the source's stored value without effect registration. For objects and arrays this is the stored value itself, unlike `source.value`, which returns an immutable-helper copy. `derived.nonReactiveValue` returns the stored computed result without effect registration; it does not run the catcher.
 
 ### Method selection and evaluation
 
 Every source and derived signal receives generic helpers. Data-specific helpers are selected once from the initial runtime value or the optional non-null hint. Dispatch order is array, plain object, string, number, then boolean (source signals only). Unsupported values receive no data-specific family.
 
 - Array sources expose mutators under `.mutate`: `concat`, `copyWithin`, `fill`, `filter`, `pop`, `push`, `shift`, `toReversed`, `toSorted`, `toSpliced`, and `unshift`.
-- Arrays expose lazy projections including lookups, predicates, transforms, reductions, `length`, `lastItem`, and `partition`.
+- Arrays expose eagerly maintained projections including lookups, predicates, transforms, reductions, `length`, `lastItem`, and `partition`.
 - Plain-object sources expose `.mutate.set(partial)` for shallow merging; object projections are `keys()`, `get(key)`, and `props()`. `props()` only includes keys present when called.
-- String sources expose string transformations under `.mutate`; source and derived strings expose lazy read-only string projections plus `deepTrim()`.
+- String sources expose string transformations under `.mutate`; source and derived strings expose eagerly maintained read-only string projections plus `deepTrim()`.
 - Numbers expose formatting helpers and `toConfined(start, end)`, which clamps inclusively.
 - Boolean source signals expose `.mutate.toggle()`.
 
-Source mutators publish through normal source assignment. Every read-only helper returns a lazy `DerivedSignal`. Signal-valued helper arguments are unwrapped when that derived result is read.
+Source mutators publish through normal source assignment. Every read-only helper returns an eagerly maintained `DerivedSignal`. Signal-valued helper arguments are unwrapped during initial helper computation and each recomputation caused by an initially captured dependency.
 
 ### Generic helpers
 
@@ -141,18 +143,18 @@ Source mutators publish through normal source assignment. Every read-only helper
 - `is` provides truthiness and strict-equality comparisons.
 - Number values also provide strict and inclusive measure comparisons.
 - Strings and arrays provide those comparisons under `.is.length` and `.if.length`.
-- `if.*` returns `.then(truthyOption, falsyOption)`; both options are read when the resulting value is read before the selected option is returned.
-- `nullable(input)` exposes this generic surface for an input type with a primitive member.
+- `if.*` returns `.then(truthyOption, falsyOption)`; both options are read during each computation before the selected option is returned.
+- `maybePlain(input)` exposes this generic surface for a plain or signal input type with a primitive member.
 
 ### Convenience APIs
 
-`compute(fn, ...args)` returns a lazy derived value. When read, it unwraps each argument with `value()` and calls `fn`.
+`compute(fn, ...args)` returns an eagerly maintained derived value. It unwraps each argument with `value()` and calls `fn` immediately, then repeats when captured signal arguments change.
 
-`tmpl` returns a lazy derived string. On every read it evaluates functions, reads signals, renders nullish expressions as `""`, and stringifies every other expression.
+`tmpl` returns an eagerly maintained derived string. It evaluates functions, reads signals, renders nullish expressions as `""`, and stringifies every other expression during initial computation and captured updates.
 
 `receive(receiver, ...transmitters)` creates one immediate effect per transmitter. `transmit(transmitter, ...receivers)` creates one immediate effect for all receivers. Signal transmitters remain connected until their returned receiver is disposed; plain transmitters only make their immediate assignment. Multiple connector effects run in registration order.
 
-`promstates(promiseFn, initialValue?, ultimately?)` returns a runner with lazy derived `result`, `error`, and `isRunning` projections. Beginning a run publishes `isRunning: true`; fulfillment stores the result, while rejection stores the rejection and preserves the prior result.
+`promstates(promiseFn, initialValue?, ultimately?)` returns a runner with eagerly maintained `result`, `error`, and `isRunning` projections. Beginning a run publishes `isRunning: true`; fulfillment stores the result, while rejection stores the rejection and preserves the prior result.
 
 Current `promstates` limitations are contractual documentation of the current implementation:
 
@@ -190,8 +192,10 @@ Creates `DerivedSignal<T>`:
 - `type: "derived-signal"`
 - readonly `value: T`
 - readonly `nonReactiveValue: T`
+- readonly `prevValue: T | undefined`
+- `dispose(): void`
 
-Reading `value` calls `catcher()`. It is neither a cached nor an independently updating computation. The optional hint selects non-mutating data methods.
+The catcher runs immediately and receives the backing signal's previous value. Source signals read during that first run become fixed dependencies. A dependency write recomputes and stores a new result synchronously; a strictly equal result does not notify downstream effects. Reading either value getter returns the stored result without calling the catcher. The optional hint selects non-mutating data methods.
 
 #### `effect(callback)`
 
@@ -231,7 +235,7 @@ array.mutate.toSpliced(start, deleteCount?, ...items);
 array.mutate.unshift(...items);
 ```
 
-Source and derived arrays provide lazy `DerivedSignal` projections:
+Source and derived arrays provide eagerly maintained `DerivedSignal` projections:
 
 ```text
 at, concat, every, filter, find, findIndex, findLast, findLastIndex,
@@ -247,7 +251,7 @@ Plain-object sources provide `.mutate.set(partial)`, a shallow merge. Source and
 
 #### Strings
 
-String sources expose transformations under `.mutate`: `concat`, `deepTrim`, padding, repetition, replacement, slicing, trimming, locale case conversion, and ordinary case conversion. Source and derived strings expose lazy versions of the matching read-only native methods plus `length()` and `deepTrim()`.
+String sources expose transformations under `.mutate`: `concat`, `deepTrim`, padding, repetition, replacement, slicing, trimming, locale case conversion, and ordinary case conversion. Source and derived strings expose eagerly maintained versions of the matching read-only native methods plus `length()` and `deepTrim()`.
 
 #### Numbers and booleans
 
@@ -268,9 +272,9 @@ input.is.notEqualTo(other);
 input.if.truthy().then(whenTruthy, whenFalsy);
 ```
 
-Numbers also provide the four measure comparisons. Strings and arrays provide the equivalent comparison surface under `.is.length` and `.if.length`. All results are lazy `DerivedSignal` values.
+Numbers also provide the four measure comparisons. Strings and arrays provide the equivalent comparison surface under `.is.length` and `.if.length`. All results are eagerly maintained `DerivedSignal` values.
 
-`nullable(input)` supplies this generic surface for a static type with at least one primitive branch.
+`maybePlain(input)` supplies this generic surface for a static type with at least one primitive branch.
 
 ### Convenience APIs
 
@@ -280,7 +284,7 @@ Numbers also provide the four measure comparisons. Strings and arrays provide th
 const total = compute((left: number, right: number) => left + right, a, b);
 ```
 
-Returns a lazy derived result. `a` and `b` may be plain values or signals.
+Returns an eagerly maintained derived result. `a` and `b` may be plain values or signals.
 
 #### `tmpl`
 
@@ -288,7 +292,7 @@ Returns a lazy derived result. `a` and `b` may be plain values or signals.
 const text = tmpl`Hello ${name}; count: ${count}`;
 ```
 
-Returns a lazy derived string. Expressions may be plain values, signals, or zero-argument functions; nullish expressions render as empty strings.
+Returns an eagerly maintained derived string. Expressions may be plain values, signals, or zero-argument functions; nullish expressions render as empty strings.
 
 #### `receive` and `transmit`
 
@@ -305,7 +309,11 @@ Both APIs create immediate effects. `receive` returns one disposable receiver pe
 const [run, result, error, isRunning] = promstates(fetchUser);
 ```
 
-Returns a runner and three lazy derived property projections over an internal object source signal.
+Returns a runner and three eagerly maintained derived property projections over an internal object source signal.
+
+#### `dispose(...derivedSignalsOrReceivers)`
+
+Calls `dispose()` on every supplied `DerivedSignal` or effect `Receiver`, in argument order. It returns `void`; individual disposal remains idempotent.
 
 ### Utilities and types
 
@@ -336,19 +344,24 @@ deadZone(callback)
 source.value assignment
   └─ runs every registered receiver synchronously
 
+derive(catcher)
+  ├─ creates a backing source signal
+  ├─ runs an internal effect immediately
+  └─ stores each recomputed catcher result in that backing signal
+
 derived.value read
-  └─ invokes its catcher immediately
+  └─ reads the backing signal's stored result
 ```
 
-The two runtime signal discriminators are `"source-signal"` for writable `SourceSignal` values and `"derived-signal"` for read-only lazy `DerivedSignal` values. A derived signal is not a stored computation: it does not own an effect, cache a previous result, or propagate updates. It is a value getter whose source reads can be observed only while an effect installs.
+The two runtime signal discriminators are `"source-signal"` for writable `SourceSignal` values and `"derived-signal"` for read-only `DerivedSignal` values. A derived signal owns a backing source signal and an internal effect. It stores the current result, exposes its prior stored result through `prevValue`, and propagates changed results through the backing source signal.
 
 ### Core files
 
 - `src/_core/source-signal.ts` constructs source signals, stores their state, and attaches helpers.
-- `src/_core/derived-signal.ts` constructs the lazy derived getter and attaches non-mutating helpers.
+- `src/_core/derived-signal.ts` constructs the backing source/internal-effect derived signal and attaches non-mutating helpers.
 - `src/_core/dead-zone.ts` exposes the public non-collecting callback helper.
 - `src/_core/effect.ts` creates the immediate callback receiver.
-- `src/_core/signals-reception-manager.ts` holds the currently installing receiver, receiver registry, and source-to-receiver registration map.
+- `src/_core/connections-manager.ts` holds the currently installing receiver and the source-to-receiver registration map.
 - `src/_core/id-generator.ts` creates source and receiver IDs.
 - `src/_core/data-specific-methods/` implements generic, array, object, string, number, and boolean helper families.
 - `src/_core/_types.ts` defines signal, receiver, and maybe-signal contracts.
@@ -357,15 +370,15 @@ The two runtime signal discriminators are `"source-signal"` for writable `Source
 
 ### Effect registration
 
-`ConnectionsManager.addReceiver(receiver)` sets one module-level receiver marker, runs the receiver, clears that marker in `finally`, and then stores the receiver by ID. If the initial callback throws, it removes its captured dependencies before propagating the error. While the marker exists, a source getter calls `notifySignalRegistration(source)`.
+`ConnectionsManager.addReceiver(receiver)` sets one module-level receiver marker, runs the receiver, and clears that marker in `finally`. If the initial callback throws, it removes its captured dependencies before propagating the error. While the marker exists, a source getter calls `notifySignalRegistration(source)`.
 
-The reception manager maps each source signal to a `Set` of receiver IDs. A source write looks up that set, resolves each ID from the receiver map, and calls `run()` directly. `removeReceiver()` removes the ID from every set and the receiver registry. This makes propagation synchronous and accounts for the fixed dependency set, disposal, and registration-order execution.
+The connections manager maps each source signal to a `Set` of receiver objects. A source write looks up that set and calls each receiver's `run()` directly. `removeReceiver()` removes the receiver from every set. This makes propagation synchronous and accounts for the fixed dependency set, disposal, and registration-order execution.
 
-`deadZone` delegates to the reception manager to temporarily clear the installing receiver. The manager restores the previous receiver with `finally`, which keeps subsequent reads in the surrounding effect collectible even if the dead-zone callback throws.
+`deadZone` delegates to the connections manager to temporarily clear the installing receiver. The manager restores the previous receiver with `finally`, which keeps subsequent reads in the surrounding effect collectible even if the dead-zone callback throws.
 
 ### Source storage
 
-A source signal closes over an immutable-helper copy of its initial value, its prior stored value, and one generated ID. The getter first attempts effect registration, then returns `newVal(_value)`. The setter compares its input to `_value` with `===`; on a difference, it shifts `_value` to `_prevValue`, stores the input, and asks the reception manager to run receivers.
+A source signal closes over an immutable-helper copy of its initial value, its prior stored value, and one generated ID. The getter first attempts effect registration, then returns `newVal(_value)`. The setter compares its input to `_value` with `===`; on a difference, it shifts `_value` to `_prevValue`, stores the input, and asks the connections manager to run receivers.
 
 `mutateWith` is the shared mutation path for data-method mutators. It calls a function with the stored value and forwards the returned value to the public setter.
 
@@ -373,19 +386,19 @@ A source signal closes over an immutable-helper copy of its initial value, its p
 
 ### Derived construction and helper dispatch
 
-`derive(catcher, hint?)` returns an object with `type` and `value` getters. The value getter only calls `catcher()`. Generic helpers and non-mutating data methods call `derive` again and therefore share this lazy behavior. The optional hint is passed to data-method dispatch; use it when a nullable value must have a method family.
+`derive(catcher, hint?)` creates an internal source signal and an immediate internal effect. The effect calls `catcher(backing.prevValue)` and assigns the result to the backing source. The public derived signal exposes the backing source's stored value, `prevValue`, and a `dispose()` method for its internal effect. Generic helpers and non-mutating data methods call `derive` again and therefore share this eager stored-result behavior. The optional hint is passed to data-method dispatch; use it when a nullable value must have a method family.
 
-The `nonReactiveValue` getter invokes the same catcher inside `deadZone`, so it remains lazy but does not let the catcher's source reads attach to an installing effect.
+The derived `nonReactiveValue` getter reads the backing source's stored result directly. It does not invoke the catcher or attach an installing effect.
 
-`getNonMutatingDataMethods` and `getMutatingAndNonMutatingDataMethods` select a family in this order: array, plain object, string, number, boolean for source methods only, or no data-specific methods. Arrays precede objects because arrays are objects. Family functions wrap native operations in either `mutateWith` or a lazy `derive`; `getPlainMethodParams` unwraps signal-capable arguments at evaluation time.
+`getNonMutatingDataMethods` and `getMutatingAndNonMutatingDataMethods` select a family in this order: array, plain object, string, number, boolean for source methods only, or no data-specific methods. Arrays precede objects because arrays are objects. Family functions wrap native operations in either `mutateWith` or eager `derive`; `getPlainMethodParams` unwraps signal-capable arguments during every computation.
 
 `getGenericMethods` supplies `or` using JavaScript `||`, `is` comparison projections, and `if` comparison selectors.
 
 ### API composition
 
-- `compute` maps signal-capable arguments through `value` inside a derived getter before calling its function.
+- `compute` maps signal-capable arguments through `value` inside an eager derived computation before calling its function.
 - `receive` and `transmit` compose immediate effects to copy values.
-- `nullable` exposes generic helpers for a maybe-null primitive input.
+- `maybePlain` exposes generic helpers for a plain or signal primitive input.
 - `promstates` stores promise state in one object source signal and returns property projections.
 - `tmpl` is a derived tagged-template evaluator.
 - `value` unwraps only recognized outer signals.
@@ -440,7 +453,7 @@ Source-array mutators intentionally use a shared mutable array surface so they d
 
 ### Signal-capable inputs
 
-APIs accepting `MaybeSignal<T>` accept a narrower signal where the declared value type is wider. This includes `value`, `getPlainMethodParams`, `compute` arguments, `nullable` inputs, signal-valued data-method arguments, `receive` transmitters, and `transmit` transmitters with wider source receivers.
+APIs accepting `MaybeSignal<T>` accept a narrower signal where the declared value type is wider. This includes `value`, `getPlainMethodParams`, `compute` arguments, `maybePlain` inputs, signal-valued data-method arguments, `receive` transmitters, and `transmit` transmitters with wider source receivers.
 
 ```ts
 const narrow = signal<1>(1);
@@ -466,7 +479,7 @@ bun run build:meta
 bun run build:validate
 ```
 
-`bun run test:types` verifies the public TypeScript contract, including directional widening such as assigning `Signal<number>` where `Signal<number | boolean | string>` is expected. Its fixtures cover positive and negative container assignments, wide source writes, array/object projections, primitive unions, maybe-signal inputs, `compute`, `value`, `nullable`, `receive`, and `transmit`.
+`bun run test:types` verifies the public TypeScript contract, including directional widening such as assigning `Signal<number>` where `Signal<number | boolean | string>` is expected. Its fixtures cover positive and negative container assignments, wide source writes, array/object projections, primitive unions, maybe-signal inputs, `compute`, `value`, `maybePlain`, `dispose`, `receive`, and `transmit`.
 
 ### Documentation pipeline
 
@@ -484,11 +497,11 @@ src/**/*.ts TSDoc
 
 ### Testing guidance
 
-Prefer behavioral tests over internal implementation tests unless the latter are necessary. For lazy helper behavior:
+Prefer behavioral tests over internal implementation tests unless the latter are necessary. For eager derived and helper behavior:
 
-1. Read a result explicitly.
-2. Change the source or signal-valued argument.
-3. Read the result again and assert the new observable value.
+1. Assert the initial computation happens when `derive()` or a helper is created.
+2. Read the result repeatedly and assert that no extra computation happens.
+3. Change a captured source or signal-valued argument and assert the stored result updates synchronously.
 4. For effects, assert immediate execution and synchronous reruns separately.
 
 Line coverage is insufficient for conditional logic. Cover both outcomes of predicates, searches, comparisons, confinement bounds, connector ordering, signal-valued operands, and effect disposal. Disposal coverage must include multiple dependencies, repeated disposal, disposal during a write, manual runs after disposal, failed initial callbacks, and `receive`/`transmit` receivers.
@@ -507,13 +520,13 @@ Read this entire guide before making changes. The essential model is:
 
 ```text
 signal(value)     mutable source value
-derive(catcher)   lazy value getter
+derive(catcher)   eager stored computation with fixed source dependencies
 effect(callback)  immediate callback with fixed source dependencies
 ```
 
-Use `signal` for mutable state. Object and array initial values and getter results are copied, so callers must not rely on identity preservation. Use `derive` for values calculated on demand. Reading a derived value outside effect installation only evaluates it; it creates no independent subscription.
+Use `signal` for mutable state. Object and array initial values and getter results are copied, so callers must not rely on identity preservation. Use `derive` for values that must be calculated immediately and updated from fixed initial dependencies. Reading a derived value outside effect installation returns its stored result; it does not calculate or subscribe.
 
-Do not add tests expecting a catcher to run at construction, retain a previous result, automatically run after a source write, or notify an effect itself. Test observable values only after explicitly reading `.value`.
+Do not add tests expecting a derived catcher to run on every `.value` read or to discover dependencies after construction. Do test immediate construction, stored `prevValue`, synchronous recomputation from the initially captured dependencies, unchanged-result suppression, and disposal.
 
 For `receive` and `transmit`, construction is eager because each creates an immediate effect. Their returned receivers can be disposed, after which later source writes do not invoke that connection.
 

@@ -9,8 +9,8 @@ import { value } from "../utils";
 /**
  * Computes a derived signal from signal-capable function arguments.
  *
- * Every argument is unwrapped with `value()` inside a derived value getter, then
- * passed to `computerFn` in order whenever the returned value is read.
+ * Every argument is unwrapped with `value()` inside an eagerly maintained
+ * derived signal, then passed to `computerFn` in order during computation.
  *
  * @template F - The function type used for parameter and result inference.
  * @param computerFn - The function to call with unwrapped argument values.
@@ -18,9 +18,9 @@ import { value } from "../utils";
  * @returns A derived signal containing the function result.
  *
  * @remarks
- * - The computation runs when the returned derived value is read.
- * - Plain arguments are read as supplied; signals are unwrapped at read time.
- * - Source-signal reads can be collected when the derived value is read during effect installation.
+ * - The computation runs immediately and on updates from initially captured signals.
+ * - Plain arguments are read as supplied; signals are unwrapped during computation.
+ * - Reading the result returns its stored value without calling `computerFn` again.
  * - Errors thrown by `computerFn` propagate synchronously.
  *
  * @example
@@ -32,7 +32,7 @@ import { value } from "../utils";
  * console.log(total.value); // 7
  * ```
  *
- * @see {@link derive} - Provides the lazy derived value getter.
+ * @see {@link derive} - Provides the eagerly maintained derived signal.
  * @see {@link value} - Unwraps each argument.
  * @see {@link MaybeSignalValues} - Describes accepted argument tuples.
  */

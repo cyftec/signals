@@ -5,6 +5,8 @@ import {
   valueIsDerivedSignal,
   valueIsSignal,
   valueIsMaybeSignalValueOfStringOrArray,
+  getPlainMethodParams,
+  effect,
   signal,
   derive,
 } from "../src";
@@ -33,6 +35,38 @@ describe("value utility", () => {
 
   it("should handle undefined", () => {
     expect(value(undefined)).toBe(undefined);
+  });
+
+  it("collects an outer source signal when unwrapping during effect installation", () => {
+    const count = signal(1);
+    const seen: number[] = [];
+
+    effect(() => {
+      seen.push(value(count));
+    });
+    count.value = 2;
+
+    expect(seen).toEqual([1, 2]);
+  });
+
+  it("leaves nested signals unchanged", () => {
+    const nested = signal(1);
+    const container = { nested };
+
+    expect(value(container)).toBe(container);
+  });
+});
+
+describe("getPlainMethodParams", () => {
+  it("unwraps source and derived signal arguments in order", () => {
+    const source = signal(2);
+    const derived = derive(() => source.value * 3);
+
+    expect(getPlainMethodParams(source, "plain", derived)).toEqual([
+      2,
+      "plain",
+      6,
+    ]);
   });
 });
 
@@ -108,6 +142,18 @@ describe("valueIsSignal", () => {
 
   it("should return false for undefined", () => {
     expect(valueIsSignal(undefined)).toBe(false);
+  });
+});
+
+describe("runtime guard structure", () => {
+  it("recognizes matching discriminators without validating signal members", () => {
+    const sourceLike = { type: "source-signal" };
+    const derivedLike = { type: "derived-signal" };
+
+    expect(valueIsSourceSignal(sourceLike)).toBe(true);
+    expect(valueIsDerivedSignal(derivedLike)).toBe(true);
+    expect(valueIsSignal(sourceLike)).toBe(true);
+    expect(valueIsSignal(derivedLike)).toBe(true);
   });
 });
 

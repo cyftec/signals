@@ -413,7 +413,7 @@ export const getStringSignalNonMutatingMethods = (
  * @remarks
  * - Mutation methods are available only under `.mutate`
  * - Non-mutating projection methods are direct members
- * - Every projection returns a lazy `DerivedSignal`.
+ * - Every projection returns an eagerly maintained `DerivedSignal`.
  *
  * @example
  * ```typescript

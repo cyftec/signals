@@ -13,8 +13,8 @@ import { SourceSignal } from "./source-signal";
  *
  * @example
  * ```typescript
- * declare const receptionManager: ConnectionsManager;
- * receptionManager.notifySignalUpdate(signal(1));
+ * declare const connectionsManager: ConnectionsManager;
+ * connectionsManager.notifySignalUpdate(signal(1));
  * ```
  *
  * @see {@link Receiver} - The callback registered for source-signal changes.
@@ -36,7 +36,7 @@ export type ConnectionsManager = {
  *
  * @remarks
  * - Dependencies are captured only during addReceiver().
- * - Repeated reads of one signal by a receiver register one receiver identifier.
+ * - Repeated reads of one signal by a receiver register one receiver object.
  * - Receivers run synchronously in insertion order for each source signal.
  *
  * @example

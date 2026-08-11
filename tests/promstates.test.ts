@@ -153,4 +153,39 @@ describe("promstates", () => {
     await runPromise(5, 3);
     expect(result.value).toBe(8);
   });
+
+  it("leaves running true when promiseFn throws synchronously", () => {
+    const failure = new Error("synchronous failure");
+    const [runPromise, , , isRunning] = promstates(() => {
+      throw failure;
+    });
+
+    expect(() => runPromise()).toThrow(failure);
+    expect(isRunning.value).toBe(true);
+  });
+
+  it("uses settlement order when concurrent runs complete", async () => {
+    const resolvers = new Map<number, (value: string) => void>();
+    const [runPromise, result, , isRunning] = promstates(
+      (id: number) =>
+        new Promise<string>((resolve) => {
+          resolvers.set(id, resolve);
+        }),
+      "initial",
+    );
+
+    const first = runPromise(1);
+    const second = runPromise(2);
+    resolvers.get(2)!("second");
+    await second;
+
+    expect(result.value).toBe("second");
+    expect(isRunning.value).toBe(false);
+
+    resolvers.get(1)!("first");
+    await first;
+
+    expect(result.value).toBe("first");
+    expect(isRunning.value).toBe(false);
+  });
 });

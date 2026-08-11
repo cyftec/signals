@@ -6,7 +6,7 @@ import {
 } from "../_core/data-specific-methods";
 
 /**
- * Adds generic logical helpers to a nullable primitive input.
+ * Adds generic logical helpers to a plain or signal-wrapped primitive input.
  *
  * The wrapper exposes `or`, `is`, and `if` operations while preserving the
  * derived result helpers for any accepted plain value or signal input.
@@ -19,12 +19,12 @@ import {
  * - The type constraint rejects inputs with no primitive member.
  * - `or` uses JavaScript truthiness, not only nullishness.
  * - Comparisons accept signal-capable operands.
- * - Result helpers are lazy derived signals, including for plain inputs.
+ * - Result helpers are eagerly maintained derived signals, including for plain inputs.
  *
  * @example
  * ```typescript
  * const count = signal<number | null>(null);
- * const label = nullable(count).if.falsy().then("missing", "present");
+ * const label = maybePlain(count).if.falsy().then("missing", "present");
  * count.value = 1;
  * console.log(label.value); // "present"
  * ```

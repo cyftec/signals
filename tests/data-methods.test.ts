@@ -357,6 +357,24 @@ describe("array data methods", () => {
     expect(sorted.value).toEqual([4, 5, 6]);
   });
 
+  it("computes projections eagerly and stores their result between reads", () => {
+    const source = signal([1, 2]);
+    let calls = 0;
+    const doubled = source.map((value) => {
+      calls++;
+      return value * 2;
+    });
+
+    expect(calls).toBe(2);
+    expect(doubled.value).toEqual([2, 4]);
+    expect(doubled.nonReactiveValue).toEqual([2, 4]);
+    expect(calls).toBe(2);
+
+    source.value = [3];
+    expect(calls).toBe(3);
+    expect(doubled.value).toEqual([6]);
+  });
+
   it("returns derived results for arrays ", () => {
     const source = signal([1, 2, 3]);
     const derived = derive(() => source.value);

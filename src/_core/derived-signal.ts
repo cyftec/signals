@@ -19,18 +19,19 @@ type DerivedSignalMethods<T> =
       : never;
 
 /**
- * Represents a read-only, lazily evaluated signal with helper methods.
+ * Represents a read-only, eagerly maintained signal with helper methods.
  *
- * A derived signal runs its catcher only when its value getter is read and
- * exposes generic and selected non-mutating data-specific helpers.
+ * A derived signal computes its initial value immediately, recomputes when its
+ * captured dependencies change, and exposes generic and selected non-mutating
+ * data-specific helpers.
  *
  * @template T - The value type returned by the catcher.
  *
  * @remarks
- * - Derived signals do not store a previous value or expose a setter.
- * - The catcher is invoked for each value read; its result is not cached.
- * - Reads performed by the catcher can connect source signals to an installing effect.
- * - nonReactiveValue invokes the catcher without connecting its source reads.
+ * - Derived signals expose the preceding stored computed value through prevValue.
+ * - The catcher runs at construction and on captured source-signal updates, not on reads.
+ * - The current and previous computed values are stored internally.
+ * - dispose() stops future recomputation.
  *
  * @example
  * ```typescript
@@ -45,21 +46,22 @@ type DerivedSignalMethods<T> =
 export type DerivedSignal<T> = BaseDerivedSignal<T> & DerivedSignalMethods<T>;
 
 /**
- * Creates a read-only lazy signal from a value-catching function.
+ * Creates a read-only eagerly maintained signal from a value-catching function.
  *
- * The returned signal invokes the catcher when its value getter is read and
+ * The returned signal invokes the catcher immediately, stores its result, and
  * attaches generic and selected non-mutating data-specific helpers.
  *
  * @template T - The value type returned by the catcher.
- * @param signalCatcherFn - The function invoked by the derived value getter.
+ * @param signalCatcherFn - The function invoked initially and on captured dependency updates.
  * @param nonNullInitialValue - Optional non-null hint used only to select data-specific helpers.
- * @returns A read-only derived signal whose value is produced by the catcher.
+ * @returns A read-only derived signal containing the most recently computed value.
  *
  * @remarks
- * - The signal has no cached value or independent update lifecycle.
- * - Reading value evaluates the catcher synchronously and propagates its errors.
- * - Source-signal reads inside the catcher are visible while an effect is installed.
- * - Reading nonReactiveValue evaluates the catcher without collecting its source reads.
+ * - The catcher receives the backing signal's previous value, which is undefined
+ *   during both the initial computation and its first recomputation.
+ * - Source-signal reads during the initial catch are fixed dependencies for future recomputation.
+ * - Reading value and nonReactiveValue does not invoke the catcher.
+ * - dispose() stops the internal effect and freezes the stored value.
  *
  * @example
  * ```typescript
@@ -85,7 +87,7 @@ export const derive = <T>(
       return "derived-signal";
     },
 
-    get lastComputedValue(): T | undefined {
+    get prevValue(): T | undefined {
       return _baseSourceSignal.prevValue;
     },
 

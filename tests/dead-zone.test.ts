@@ -119,9 +119,13 @@ describe("nonReactiveValue", () => {
     expect(count.nonReactiveValue).toBe(2);
   });
 
-  it("evaluates a derived value without collecting its source reads", () => {
+  it("reads a derived stored value without collecting it as an effect dependency", () => {
     const count = signal(1);
-    const doubled = derive(() => count.value * 2);
+    let computations = 0;
+    const doubled = derive(() => {
+      computations++;
+      return count.value * 2;
+    });
     const seen: number[] = [];
 
     effect(() => {
@@ -132,6 +136,7 @@ describe("nonReactiveValue", () => {
 
     expect(seen).toEqual([2]);
     expect(doubled.nonReactiveValue).toBe(4);
+    expect(computations).toBe(2);
   });
 
   it("does not accidentally collect a signal while assigning its data methods", () => {

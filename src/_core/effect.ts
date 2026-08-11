@@ -9,7 +9,7 @@ import { Receiver } from "./_types";
  * to the returned receiver and rerun the same callback when they are assigned.
  *
  * @param signalsCatcher - The callback whose initial source-signal reads are tracked.
- * @returns The receiver that the reception manager uses for future synchronous runs.
+ * @returns The receiver that the connections manager uses for future synchronous runs.
  *
  * @remarks
  * - The callback runs once before effect() returns.

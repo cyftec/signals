@@ -8,8 +8,8 @@ import { valueIsSignal } from "../utils";
  * values. The broad plain-value branch intentionally permits any JavaScript value.
  *
  * @remarks
- * - Functions are invoked whenever the returned derived value is read.
- * - Signal values are read when the returned derived value is read.
+ * - Functions are invoked during initial computation and captured signal updates.
+ * - Signal values are read during those same computations.
  * - Nullish expression results are rendered as empty strings.
  *
  * @example
@@ -31,7 +31,7 @@ export type StringSignalDeriverTemplateExpressions = (
 )[];
 
 /**
- * Builds a lazy derived string from a tagged-template expression list.
+ * Builds an eagerly maintained derived string from a tagged-template expression list.
  *
  * The tag creates a derived signal, evaluates deferred functions, reads signal
  * values, replaces nullish results with an empty string, and stringifies every
@@ -43,8 +43,8 @@ export type StringSignalDeriverTemplateExpressions = (
  *
  * @remarks
  * - Function expressions are called with no arguments.
- * - Source-signal reads inside interpolation can be collected during effect installation.
- * - Plain expressions are evaluated each time the derived value is read.
+ * - Source-signal reads inside interpolation become fixed dependencies of the template signal.
+ * - Plain expressions are evaluated during each template computation, not on value reads.
  * - A throwing function or `toString()` call propagates its error.
  *
  * @example
@@ -56,7 +56,7 @@ export type StringSignalDeriverTemplateExpressions = (
  * ```
  *
  * @see {@link StringSignalDeriverTemplateExpressions} - Describes placeholders.
- * @see {@link derive} - Provides the lazy derived value getter.
+ * @see {@link derive} - Provides the eagerly maintained derived signal.
  * @see {@link DerivedSignal} - Describes the return value.
  */
 export const tmpl = (

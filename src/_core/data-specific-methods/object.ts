@@ -63,7 +63,7 @@ export const getObjectMutatingMethods = <T extends Record<string, any>>(
  * @remarks
  * - `keys()` and `get()` project through the current object value
  * - `props()` creates one property signal for each key present when it is called
- * - Every projection returns a lazy `DerivedSignal`.
+ * - Every projection returns an eagerly maintained `DerivedSignal`.
  *
  * @see {@link ObjectNonMutatingMethods} - The returned method contract
  * @see {@link getObjectMutatingMethods} - For shallow source-signal updates
@@ -110,7 +110,7 @@ export const getObjectNonMutatingMethods = <T extends Record<string, any>>(
  * @remarks
  * - Mutation is available only through `.mutate.set()`
  * - Non-mutating projections are direct members
- * - Every projection returns a lazy `DerivedSignal`.
+ * - Every projection returns an eagerly maintained `DerivedSignal`.
  *
  * @see {@link getObjectMutatingMethods} - For mutating methods only
  * @see {@link getObjectNonMutatingMethods} - For non-mutating methods only

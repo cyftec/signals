@@ -340,7 +340,7 @@ export const getArrayCustomNonMutatingMethods = <T extends any[]>(
  * @returns Combined non-mutating methods for array signals
  *
  * @remarks
- * - Every projection returns a lazy `DerivedSignal`.
+ * - Every projection returns an eagerly maintained `DerivedSignal`.
  * - This bundle does not include mutators
  *
  * @example
@@ -373,7 +373,7 @@ export const getArrayNonMutatingMethods = <T extends any[]>(
  * @remarks
  * - Mutation methods are available under `.mutate`
  * - Non-mutating methods are direct members of the returned object
- * - Every projection returns a lazy `DerivedSignal`.
+ * - Every projection returns an eagerly maintained `DerivedSignal`.
  *
  * @example
  * ```typescript

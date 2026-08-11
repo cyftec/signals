@@ -9,7 +9,7 @@ import { SourceSignal, DerivedSignal } from "..";
  * @remarks
  * - dispose() removes the receiver from all captured source-signal dependencies.
  * - dispose() is idempotent; run() remains available for a manual non-collecting run.
- * - The reception manager uses id to deduplicate repeated reads of one source signal.
+ * - The connections manager uses receiver identity to deduplicate repeated reads of one source signal.
  *
  * @example
  * ```typescript
@@ -18,7 +18,7 @@ import { SourceSignal, DerivedSignal } from "..";
  * receiver.dispose();
  * ```
  *
- * @see {@link SignalsReceptionManager} - Stores and invokes receivers.
+ * @see {@link ConnectionsManager} - Stores and invokes receivers.
  * @see {@link effect} - Creates receivers from callbacks.
  */
 export type Receiver = {
@@ -83,15 +83,15 @@ export type BaseSourceSignal<T> = {
 /**
  * Defines the common runtime shape of a read-only derived signal.
  *
- * A derived signal evaluates its catcher whenever its value is read and exposes
+ * A derived signal stores the latest value computed by its catcher and exposes
  * the same runtime discriminator as other derived projections.
  *
  * @template T - The value type produced by the signal.
  *
  * @remarks
- * - Derived signals have no identifier, previous value, or setter.
- * - Reads can connect source signals accessed by the catcher to an installing effect.
- * - nonReactiveValue evaluates the catcher without connecting those source reads.
+ * - Derived signals have no identifier or setter.
+ * - prevValue is initially undefined and holds the preceding stored computed value.
+ * - nonReactiveValue reads the stored computed value without dependency collection.
  *
  * @example
  * ```typescript
@@ -104,7 +104,7 @@ export type BaseSourceSignal<T> = {
  */
 export type BaseDerivedSignal<T> = {
   get type(): SignalType;
-  get lastComputedValue(): T | undefined;
+  get prevValue(): T | undefined;
   get nonReactiveValue(): T;
   get value(): T;
   readonly dispose: () => void;
@@ -174,7 +174,7 @@ export type MaybeSignal<T> = T | Signal<T>;
  * ```
  *
  * @see {@link Signal} - Signal kinds preserved by this transformation.
- * @see {@link nullable} - Adds generic helpers to nullable primitive inputs.
+ * @see {@link maybePlain} - Adds generic helpers to maybe-plain primitive inputs.
  */
 export type NonNullSignalValue<S> =
   S extends SourceSignal<infer SS>

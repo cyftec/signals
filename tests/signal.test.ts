@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { derive, effect, signal } from "../src";
+import { derive, dispose, effect, signal } from "../src";
 
 describe("signal", () => {
   it("creates a source signal with its initial value and type", () => {
@@ -21,6 +21,20 @@ describe("signal", () => {
     count.value = 2;
     expect(count.value).toBe(2);
     expect(count.prevValue).toBe(1);
+  });
+
+  it("updates through mutateWith using the stored current value", () => {
+    const count = signal(2);
+    let effectRuns = 0;
+    effect(() => {
+      void count.value;
+      effectRuns++;
+    });
+
+    expect(count.mutateWith((value) => value * 3)).toBeUndefined();
+    expect(count.value).toBe(6);
+    expect(count.prevValue).toBe(2);
+    expect(effectRuns).toBe(2);
   });
 
   it("does not update prevValue or trigger effects for an unchanged value", () => {
@@ -294,6 +308,21 @@ describe("derive", () => {
     expect(doubled.type).toBe("derived-signal");
   });
 
+  it("computes eagerly once and reads its stored result without recomputing", () => {
+    const count = signal(2);
+    let computations = 0;
+    const doubled = derive(() => {
+      computations++;
+      return count.value * 2;
+    });
+
+    expect(computations).toBe(1);
+    expect(doubled.value).toBe(4);
+    expect(doubled.value).toBe(4);
+    expect(doubled.nonReactiveValue).toBe(4);
+    expect(computations).toBe(1);
+  });
+
   it("updates when its dependency changes", () => {
     const count = signal(0);
     const doubled = derive(() => count.value * 2);
@@ -301,6 +330,33 @@ describe("derive", () => {
     count.value = 5;
 
     expect(doubled.value).toBe(10);
+  });
+
+  it("exposes the preceding computed value through prevValue", () => {
+    const count = signal(1);
+    const doubled = derive(() => count.value * 2);
+
+    expect(doubled.prevValue).toBeUndefined();
+
+    count.value = 3;
+    expect(doubled.value).toBe(6);
+    expect(doubled.prevValue).toBe(2);
+  });
+
+  it("passes the backing signal previous value to its catcher", () => {
+    const count = signal(1);
+    const catcherPreviousValues: Array<number | undefined> = [];
+    const doubled = derive<number>((previousValue) => {
+      catcherPreviousValues.push(previousValue);
+      return count.value * 2;
+    });
+
+    count.value = 2;
+    count.value = 3;
+
+    expect(doubled.value).toBe(6);
+    expect(catcherPreviousValues).toEqual([undefined, undefined, 2]);
+    expect(doubled.prevValue).toBe(4);
   });
 
   it("tracks multiple dependencies", () => {
@@ -313,6 +369,27 @@ describe("derive", () => {
 
     right.value = 3;
     expect(sum.value).toBe(8);
+  });
+
+  it("keeps only the dependencies captured during its initial computation", () => {
+    const chooseLeft = signal(true);
+    const left = signal(1);
+    const right = signal(10);
+    let computations = 0;
+    const selected = derive(() => {
+      computations++;
+      return chooseLeft.value ? left.value : right.value;
+    });
+
+    chooseLeft.value = false;
+    expect(selected.value).toBe(10);
+
+    right.value = 20;
+    expect(selected.value).toBe(10);
+
+    left.value = 2;
+    expect(selected.value).toBe(20);
+    expect(computations).toBe(3);
   });
 
   it("supports chained derived signals", () => {
@@ -354,5 +431,39 @@ describe("derive", () => {
 
     count.value = 4;
     expect(seen).toEqual([1, 0]);
+  });
+
+  it("stops recomputing and freezes its value after disposal", () => {
+    const count = signal(2);
+    let computations = 0;
+    const doubled = derive(() => {
+      computations++;
+      return count.value * 2;
+    });
+
+    doubled.dispose();
+    doubled.dispose();
+    count.value = 3;
+
+    expect(doubled.value).toBe(4);
+    expect(doubled.prevValue).toBeUndefined();
+    expect(computations).toBe(1);
+  });
+});
+
+describe("dispose", () => {
+  it("disposes derived signals and receivers in argument order", () => {
+    const source = signal(1);
+    const doubled = derive(() => source.value * 2);
+    const seen: number[] = [];
+    const watcher = effect(() => {
+      seen.push(doubled.value);
+    });
+
+    expect(dispose(doubled, watcher)).toBeUndefined();
+    source.value = 2;
+
+    expect(doubled.value).toBe(2);
+    expect(seen).toEqual([2]);
   });
 });

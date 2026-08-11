@@ -1,6 +1,6 @@
 # @cyftec/signals
 
-A TypeScript signal library with mutable source values, lazy derived values,
+A TypeScript signal library with mutable source values, eagerly maintained derived values,
 synchronous effects, and data-specific helpers.
 
 ## Installation
@@ -31,8 +31,10 @@ dependencies until `receiver.dispose()` is called, and later writes rerun the
 effect synchronously. Disposal is idempotent; `receiver.run()` remains
 available for a manual, non-collecting run.
 
-`derive()` is lazy: its catcher runs every time `.value` is read. Derived
-signals do not cache, retain prior values, or independently notify effects.
+`derive()` runs its catcher immediately, stores the result, and recomputes
+synchronously when a source read during that first run changes. `.value` reads
+the stored result; `prevValue` exposes the preceding result, and `dispose()`
+stops future recomputation.
 
 Use `deadZone(callback)` during an effect's initial run to evaluate signal reads
 without making them dependencies. Individual source and derived signals also
@@ -40,14 +42,14 @@ provide `nonReactiveValue` for a single non-collecting read.
 
 ## Highlights
 
-- Writable source signals via `signal()` and lazy read-only projections via
+- Writable source signals via `signal()` and eager read-only projections via
   `derive()`.
 - Synchronous effects with fixed, disposable dependencies.
 - `deadZone()` and `nonReactiveValue` for explicitly non-collecting reads.
 - Array, object, string, number, and boolean helper families selected from the
   initial value.
 - Convenience APIs: `compute`, `tmpl`, `receive`, `transmit`, `promstates`,
-  and `nullable`.
+  `maybePlain`, and `dispose`.
 - Directional TypeScript variance for signal containers.
 
 ## Documentation

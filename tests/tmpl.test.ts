@@ -47,6 +47,16 @@ describe("tmpl", () => {
     expect(doubled.value).toBe("Count: 20");
   });
 
+  it("evaluates function expressions eagerly and not again while reading its stored value", () => {
+    let evaluations = 0;
+    const message = tmpl`Run ${() => ++evaluations}`;
+
+    expect(evaluations).toBe(1);
+    expect(message.value).toBe("Run 1");
+    expect(message.nonReactiveValue).toBe("Run 1");
+    expect(evaluations).toBe(1);
+  });
+
   it("should handle mixed expressions", () => {
     const name = signal("Alice");
     const age = 30;

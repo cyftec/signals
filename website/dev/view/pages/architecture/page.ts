@@ -43,7 +43,7 @@ export default HtmlPage({
                   m.Div({ class: "diagram-arrow", children: "→" }),
                   m.Div({
                     class: "card shallow diagram-node",
-                    children: m.Span({ children: "EffectHook registration" }),
+                    children: m.Span({ children: "ConnectionsManager registration" }),
                   }),
                   m.Div({ class: "diagram-arrow", children: "→" }),
                   m.Div({
@@ -68,7 +68,7 @@ export default HtmlPage({
                 m.Li({ children: "`signal()` creates mutable source state" }),
                 m.Li({
                   children:
-                    "reading `.value` records the current EffectHook effect on the base signal",
+                    "reading `.value` records the currently installing receiver on the source signal",
                 }),
                 m.Li({
                   children:
@@ -93,7 +93,7 @@ export default HtmlPage({
                   m.Div({ class: "diagram-arrow", children: "→" }),
                   m.Div({
                     class: "card shallow diagram-node",
-                    children: m.Span({ children: "EffectHook" }),
+                    children: m.Span({ children: "ConnectionsManager" }),
                   }),
                   m.Div({ class: "diagram-arrow", children: "→" }),
                   m.Div({
@@ -115,11 +115,11 @@ export default HtmlPage({
               children: [
                 m.Li({
                   children:
-                    "`effect()` places itself in the singleton EffectHook before the initial callback",
+                    "`effect()` registers itself as the singleton installing receiver before the initial callback",
                 }),
                 m.Li({
                   children:
-                    "each live signal getter records a two-way subscription between the signal and effect",
+                    "each source signal getter records the receiver in that signal's dependency Set",
                 }),
                 m.Li({
                   children:
@@ -180,7 +180,7 @@ export default HtmlPage({
                 m.Li({ children: "an internal effect recomputes the value" }),
                 m.Li({
                   children:
-                    "the public derived signal exposes read-only `.value`, `prevValue`, and `dispose()`",
+                    "the public derived signal exposes read-only `.value`, `prevValue`, `nonReactiveValue`, and `dispose()`",
                 }),
               ],
             }),
@@ -207,15 +207,13 @@ export default HtmlPage({
                   m.Div({
                     class: "card shallow diagram-node",
                     children: m.Span({
-                      children: "clear effect bookkeeping",
+                    children: "remove the receiver from dependency Sets",
                     }),
                   }),
                   m.Div({ class: "diagram-arrow", children: "→" }),
                   m.Div({
                     class: "card shallow diagram-node",
-                    children: m.Span({
-                      children: "isDisposed = true",
-                    }),
+                    children: m.Span({ children: "future writes skip it" }),
                   }),
                 ],
               }),
@@ -234,7 +232,7 @@ export default HtmlPage({
                 }),
                 m.Li({
                   children:
-                    "disposing the same live effect or derived signal twice throws",
+                    "disposing the same effect or derived signal twice is safe",
                 }),
               ],
             }),
@@ -297,19 +295,19 @@ export default HtmlPage({
             m.Ul({
               children: [
                 m.Li({
-                  children: "Source signals store `_value` and `_effects`",
+                  children: "Source signals store `_value` and `_prevValue`",
                 }),
                 m.Li({
                   children:
-                    "Effects store disposal state plus stimulus and dependent signal Sets",
+                    "The ConnectionsManager maps source signals to their receiver Sets",
                 }),
                 m.Li({
                   children:
-                    "Derived signals combine base-signal storage, an updater effect, and a read-only setter",
+                    "Derived signals combine backing-source storage, an updater effect, and a read-only facade",
                 }),
                 m.Li({
                   children:
-                    "Live data methods return derived signals; dead-signal methods return snapshots",
+                    "Read-only data methods return eagerly maintained derived signals",
                 }),
                 m.Li({
                   children:
@@ -332,7 +330,7 @@ export default HtmlPage({
                 }),
                 m.Li({
                   children:
-                    "It gives live and dead values a consistent projection vocabulary",
+                    "It gives source and derived values a consistent projection vocabulary",
                 }),
                 m.Li({
                   children:

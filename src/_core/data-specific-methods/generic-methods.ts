@@ -24,8 +24,8 @@ import type {
  *
  * @remarks
  * - The `then` method returns truthyOption if the condition is true, otherwise falsyOption
- * - Every branch selection returns a lazy derived signal.
- * - Both options are read when that derived value is read.
+ * - Every branch selection returns an eagerly maintained derived signal.
+ * - Both options are read during initial computation and captured updates.
  * - Used by the `if` logical methods for conditional value selection
  */
 const getTernaryThen = (truthyEvaluator: () => boolean): TernaryThen => {
@@ -221,7 +221,7 @@ const getLengthMethods = <GenericMethodReturn extends GenericMethodReturnType>(
  * Creates logical methods for signals.
  *
  * Builds the `or`, `is`, and `if` method groups shared by supported signal
- * values. Every comparison result is a lazy derived signal.
+ * values. Every comparison result is an eagerly maintained derived signal.
  *
  * @template T - The value type exposed by the input
  * @param baseSignal - The signal to add logical methods to

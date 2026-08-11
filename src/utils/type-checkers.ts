@@ -22,7 +22,7 @@ import { value } from "./value-getter";
  * ```
  *
  * @see {@link SourceSignal} - The corresponding structural type.
- * @see {@link valueIsDerivedSignal} - Checks the computed-live discriminator.
+ * @see {@link valueIsDerivedSignal} - Checks the derived-signal discriminator.
  * @see {@link valueIsSignal} - Checks either live discriminator.
  */
 export const valueIsSourceSignal = (input: MaybeSignal<any>): boolean =>
