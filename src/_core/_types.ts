@@ -1,54 +1,6 @@
 import { SourceSignal, DerivedSignal } from "..";
 
 /**
- * Defines the internal registry used to connect source-signal reads to effects.
- *
- * Source-signal getters register the effect currently being installed, and
- * source-signal writes synchronously invoke each registered receiver.
- *
- * @remarks
- * - This is exported for the core implementation; applications normally use effect() instead.
- * - Dependency registration occurs only while an effect is first installed.
- *
- * @example
- * ```typescript
- * declare const receptionManager: SignalsReceptionManager;
- * receptionManager.runReceivers(signal(1));
- * ```
- *
- * @see {@link Receiver} - The callback registered for source-signal changes.
- * @see {@link effect} - The public API that installs a receiver.
- */
-export type SignalsReceptionManager = {
-  readonly addReceiver: (receiver: Receiver) => void;
-  readonly removeReceiver: (receiver: Receiver) => void;
-  readonly ignoreReceiver: <T>(callbackWithSignals: () => T) => T;
-  readonly connectWithNewReceiver: (signal: BaseSourceSignal<unknown>) => void;
-  readonly runReceivers: (signal: BaseSourceSignal<unknown>) => void;
-};
-
-/**
- * Preserves the legacy reception-manager type name.
- *
- * SignalConnector is an exact alias of SignalsReceptionManager for existing
- * consumers that imported the former public type.
- *
- * @remarks
- * - This alias exists only for source compatibility.
- * - New code should use SignalsReceptionManager.
- *
- * @example
- * ```typescript
- * declare const manager: SignalConnector;
- * manager.runReceivers(signal(1));
- * ```
- *
- * @see {@link SignalsReceptionManager} - The current reception-manager type name.
- * @deprecated Use {@link SignalsReceptionManager} instead.
- */
-export type SignalConnector = SignalsReceptionManager;
-
-/**
  * Represents a synchronous effect receiver.
  *
  * A receiver has a stable identifier and invokes its effect callback through
@@ -70,7 +22,7 @@ export type SignalConnector = SignalsReceptionManager;
  * @see {@link effect} - Creates receivers from callbacks.
  */
 export type Receiver = {
-  readonly id: number;
+  get id(): number;
   readonly run: () => void;
   readonly dispose: () => void;
 };
@@ -119,9 +71,9 @@ export type SignalType = "source-signal" | "derived-signal";
  * @see {@link BaseDerivedSignal} - The read-only signal shape.
  */
 export type BaseSourceSignal<T> = {
-  readonly type: SignalType;
-  readonly id: number;
-  readonly prevValue: T | undefined;
+  get type(): SignalType;
+  get id(): number;
+  get prevValue(): T | undefined;
   get nonReactiveValue(): T;
   get value(): T;
   set value(newValue: T);
@@ -151,9 +103,11 @@ export type BaseSourceSignal<T> = {
  * @see {@link BaseSourceSignal} - The writable signal shape.
  */
 export type BaseDerivedSignal<T> = {
-  readonly type: SignalType;
+  get type(): SignalType;
+  get lastComputedValue(): T | undefined;
   get nonReactiveValue(): T;
   get value(): T;
+  readonly dispose: () => void;
 };
 
 /**

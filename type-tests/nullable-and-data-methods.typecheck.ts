@@ -1,17 +1,9 @@
 import { expectTypeOf } from "bun:test";
-import {
-  derive,
-  nullable,
-  signal,
-  type DerivedSignal,
-} from "../src";
+import { derive, maybePlain, signal, type DerivedSignal } from "../src";
 
 const nullableSource = signal<string | null>(null, "");
-const nullableDerived = derive<string | null>(
-  () => nullableSource.value,
-  "",
-);
-const nullableMethods = nullable(nullableSource);
+const nullableDerived = derive<string | null>(() => nullableSource.value, "");
+const maybePlainMethods = maybePlain(nullableSource);
 
 expectTypeOf(nullableSource.or("fallback")).toEqualTypeOf<
   DerivedSignal<string>
@@ -19,9 +11,9 @@ expectTypeOf(nullableSource.or("fallback")).toEqualTypeOf<
 expectTypeOf(nullableDerived.or("fallback")).toEqualTypeOf<
   DerivedSignal<string>
 >();
-expectTypeOf(nullableMethods.if.equalTo(null).then("missing", 1)).toEqualTypeOf<
-  DerivedSignal<string | number>
->();
+expectTypeOf(
+  maybePlainMethods.if.equalTo(null).then("missing", 1),
+).toEqualTypeOf<DerivedSignal<string | number>>();
 
 const arraySource = signal<number[]>([]);
 const arrayDerived = derive<number[]>(() => arraySource.value);

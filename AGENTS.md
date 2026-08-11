@@ -357,7 +357,7 @@ The two runtime signal discriminators are `"source-signal"` for writable `Source
 
 ### Effect registration
 
-`ConnectionsManager.addReceiver(receiver)` sets one module-level receiver marker, runs the receiver, clears that marker in `finally`, and then stores the receiver by ID. If the initial callback throws, it removes its captured dependencies before propagating the error. While the marker exists, a source getter calls `connectWithNewReceiver(source)`.
+`ConnectionsManager.addReceiver(receiver)` sets one module-level receiver marker, runs the receiver, clears that marker in `finally`, and then stores the receiver by ID. If the initial callback throws, it removes its captured dependencies before propagating the error. While the marker exists, a source getter calls `notifySignalRegistration(source)`.
 
 The reception manager maps each source signal to a `Set` of receiver IDs. A source write looks up that set, resolves each ID from the receiver map, and calls `run()` directly. `removeReceiver()` removes the ID from every set and the receiver registry. This makes propagation synchronous and accounts for the fixed dependency set, disposal, and registration-order execution.
 

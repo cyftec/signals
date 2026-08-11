@@ -349,7 +349,6 @@ describe("array data methods", () => {
   it("supports non-mutating methods on derived array signals", () => {
     const source = signal([3, 1, 2]);
     const derived = derive(() => source.value);
-    console.log(derived);
     const sorted = derived.toSorted((a, b) => a - b);
 
     expect(sorted.value).toEqual([1, 2, 3]);

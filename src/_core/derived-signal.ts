@@ -7,7 +7,8 @@ import {
   IsExactlyAny,
   NonMutatingMethods,
 } from "./data-specific-methods";
-import { deadZone } from "./dead-zone";
+import { effect } from "./effect";
+import { signal } from "./source-signal";
 
 type DerivedSignalMethods<T> =
   IsExactlyAny<T> extends true
@@ -71,20 +72,33 @@ export type DerivedSignal<T> = BaseDerivedSignal<T> & DerivedSignalMethods<T>;
  * @see {@link compute} - Creates a derived signal from signal-capable arguments.
  */
 export const derive = <T>(
-  signalCatcherFn: () => T,
+  signalCatcherFn: (oldValue: T | undefined) => T,
   nonNullInitialValue?: NonNullable<T>,
 ): DerivedSignal<T> => {
+  const _baseSourceSignal = signal<T>(undefined as T);
+  const _receiver = effect(() => {
+    _baseSourceSignal.value = signalCatcherFn(_baseSourceSignal.prevValue);
+  });
+
   let derivedSignal: BaseDerivedSignal<T> = {
     get type(): SignalType {
       return "derived-signal";
     },
 
-    get nonReactiveValue() {
-      return deadZone(signalCatcherFn);
+    get lastComputedValue(): T | undefined {
+      return _baseSourceSignal.prevValue;
+    },
+
+    get nonReactiveValue(): T {
+      return _baseSourceSignal.nonReactiveValue;
     },
 
     get value(): T {
-      return signalCatcherFn();
+      return _baseSourceSignal.value;
+    },
+
+    dispose() {
+      _receiver.dispose();
     },
   };
 

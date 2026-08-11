@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { derive, nullable, signal } from "../src";
+import { derive, maybePlain, signal } from "../src";
 
 describe("generic methods", () => {
   describe("or()", () => {
@@ -334,9 +334,9 @@ describe("generic methods", () => {
   });
 });
 
-describe("nullable generic-method wrapper", () => {
-  it("adds generic methods to a plain nullable primitive", () => {
-    const wrapped = nullable<number | undefined>(undefined);
+describe("maybePlain generic-method wrapper", () => {
+  it("adds generic methods to a plain maybePlain primitive", () => {
+    const wrapped = maybePlain<number | undefined>(undefined);
 
     expect(wrapped.or(10).value).toBe(10);
     expect(wrapped.is.falsy().value).toBe(true);
@@ -347,7 +347,7 @@ describe("nullable generic-method wrapper", () => {
 
   it("keeps wrapped signal values reactive", () => {
     const input = signal<number | null>(null);
-    const wrapped = nullable(input);
+    const wrapped = maybePlain(input);
     const result = wrapped.if.truthy().then("present", "missing");
 
     expect(result.value).toBe("missing");

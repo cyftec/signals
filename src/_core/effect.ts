@@ -1,4 +1,4 @@
-import { ConnectionsManager } from "./signals-reception-manager";
+import { ConnectionsManager } from "./connections-manager";
 import { IdGenerator } from "./id-generator";
 import { Receiver } from "./_types";
 
@@ -29,7 +29,7 @@ import { Receiver } from "./_types";
  * @see {@link Receiver} - The returned effect receiver.
  * @see {@link signal} - Creates source signals that effects can observe.
  */
-export const effect = (signalsCatcher: () => void) => {
+export const effect = (signalsCatcher: () => void): Receiver => {
   const _id = IdGenerator.newID;
 
   const receiver: Receiver = {

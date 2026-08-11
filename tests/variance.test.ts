@@ -567,10 +567,7 @@ describe("widened derived data-specific signals", () => {
     const smaller = wide.is.smallerThan(boundary);
     const smallerOrEqual = wide.is.smallerThanOrEqualTo(boundary);
     const unequal = wide.is.notEqualTo(boundary);
-    const label = wide.if.greaterThan(boundary).then(
-      truthyOption,
-      falsyOption,
-    );
+    const label = wide.if.greaterThan(boundary).then(truthyOption, falsyOption);
 
     expect(greater.value).toBe(false);
     expect(greaterOrEqual.value).toBe(false);
@@ -671,10 +668,18 @@ describe("widened connectors", () => {
       title: "source",
       isSelected: true,
     });
-    const narrowDerived = derive(() => ({
-      title: `${narrowSource.value.title}-derived`,
-      isSelected: narrowSource.value.isSelected,
-    }));
+    const narrowDerived = derive(() => {
+      console.log(`narrowSource new title - '${narrowSource.value.title}'`);
+      return {
+        title: `${narrowSource.value.title}-derived`,
+        isSelected: narrowSource.value.isSelected,
+      };
+    });
+
+    effect(() => {
+      console.log(`narrowDerived new title - '${narrowDerived.value.title}'`);
+      console.log(JSON.stringify(narrowDerived.value));
+    });
     const receiver = signal<WideObject>({ title: "receiver" });
 
     receive(receiver, narrowSource);
@@ -698,7 +703,7 @@ describe("widened connectors", () => {
       isSelected: true,
     });
     expect(receiver.value).toEqual({
-      title: "derived-update-derived",
+      title: "derived-update",
       isSelected: true,
     });
 
@@ -707,7 +712,7 @@ describe("widened connectors", () => {
 
     narrowSource.value = { title: "connected-again", isSelected: false };
     expect(receiver.value).toEqual({
-      title: "connected-again-derived",
+      title: "connected-again",
       isSelected: false,
     });
   });
@@ -753,11 +758,11 @@ describe("widened connectors", () => {
     transmit(derived, left, right);
     narrowSource.value = { title: "derived-update", isSelected: true };
     expect(left.value).toEqual({
-      title: "derived-update-derived",
+      title: "derived-update",
       isSelected: true,
     });
     expect(right.value).toEqual({
-      title: "derived-update-derived",
+      title: "derived-update",
       isSelected: true,
     });
 
@@ -767,11 +772,11 @@ describe("widened connectors", () => {
 
     narrowSource.value = { title: "broadcast-again", isSelected: false };
     expect(left.value).toEqual({
-      title: "broadcast-again-derived",
+      title: "broadcast-again",
       isSelected: false,
     });
     expect(right.value).toEqual({
-      title: "broadcast-again-derived",
+      title: "broadcast-again",
       isSelected: false,
     });
   });

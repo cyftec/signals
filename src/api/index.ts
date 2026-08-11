@@ -1,5 +1,5 @@
 export * from "./compute";
 export * from "./connectors";
-export * from "./nullable";
+export * from "./maybe-plain";
 export * from "./promstates";
 export * from "./tmpl";

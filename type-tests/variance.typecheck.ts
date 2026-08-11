@@ -1,8 +1,7 @@
 import { expectTypeOf } from "bun:test";
 import {
   compute,
-  derive,
-  nullable,
+  maybePlain,
   receive,
   signal,
   transmit,
@@ -61,7 +60,9 @@ expectTypeOf(sourceArray.at(0)).toEqualTypeOf<
 expectTypeOf(sourceArray.map((item) => item.href)).toEqualTypeOf<
   DerivedSignal<(string | undefined)[]>
 >();
-expectTypeOf(sourceArray.partition((item) => item.isSelected === true)).toEqualTypeOf<
+expectTypeOf(
+  sourceArray.partition((item) => item.isSelected === true),
+).toEqualTypeOf<
   readonly [DerivedSignal<WideArray>, DerivedSignal<WideArray>]
 >();
 
@@ -106,7 +107,9 @@ const maybeValues: MaybeSignalValues<[WideArray, WideObject]> = [
   narrowSourceArray,
   narrowObject,
 ];
-expectTypeOf<PlainValue<SourceSignal<NarrowArray>>>().toEqualTypeOf<NarrowArray>();
+expectTypeOf<
+  PlainValue<SourceSignal<NarrowArray>>
+>().toEqualTypeOf<NarrowArray>();
 expectTypeOf<
   PlainValues<MaybeSignalValues<[NarrowArray, string]>>
 >().toEqualTypeOf<[NarrowArray, string]>();
@@ -123,9 +126,10 @@ expectTypeOf(
   ),
 ).toEqualTypeOf<DerivedSignal<string>>();
 
-const nullableWide = (input: MaybeSignal<string | number>) => nullable(input);
-nullableWide(narrowString);
-nullableWide(narrowNumber);
+const maybePlainWide = (input: MaybeSignal<string | number>) =>
+  maybePlain(input);
+maybePlainWide(narrowString);
+maybePlainWide(narrowNumber);
 
 const receiver = signal<WideArray>([]);
 receive(receiver, narrowSourceArray, narrowDerivedArray, []);

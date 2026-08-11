@@ -347,13 +347,12 @@ describe("derive", () => {
     const watcher = effect(() => {
       seen.push(parity.value);
     });
-    // effect immediately runs for catching signals
     expect(seen).toEqual([1]);
 
     count.value = 3;
-    expect(seen).toEqual([1, 1]);
+    expect(seen).toEqual([1]);
 
     count.value = 4;
-    expect(seen).toEqual([1, 1, 0]);
+    expect(seen).toEqual([1, 0]);
   });
 });

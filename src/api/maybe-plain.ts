@@ -33,7 +33,7 @@ import {
  * @see {@link DerivedSignal} - Represents helper results.
  * @see {@link value} - Unwraps signal operands.
  */
-export const nullable = <I extends MaybeSignal<unknown>>(
+export const maybePlain = <I extends MaybeSignal<unknown>>(
   input: I &
     (Extract<PlainValue<I>, Primitive> extends never ? never : unknown),
 ): GenericMethods<PlainValue<I>> =>
