@@ -337,6 +337,80 @@ describe("array data methods", () => {
       expect(array.value).toEqual([1, 2, 3]);
     });
 
+    it("provides the remaining intrinsic read-only array projections", () => {
+      const array = signal([1, 2, 3]);
+      const item = signal(2);
+      const fromIndex = signal(1);
+      const included = array.includes(item);
+      const firstIndex = array.indexOf(item);
+      const finalIndex = array.lastIndexOf(item);
+      const joined = array.join("-");
+      const localized = array.toLocaleString("en-US");
+      const sliced = array.slice(fromIndex);
+      const replaced = array.with(1, 9);
+      const entries = array.entries();
+      const keys = array.keys();
+      const values = array.values();
+      const flattened = signal([1, [2], [3]]).flat();
+      const multiplier = signal(10);
+      const flatMapped = array.flatMap(function (this: number, value) {
+        return [value, value * this];
+      }, multiplier);
+      const mapped = array.map(function (this: { multiplier: number }, value) {
+        return value * this.multiplier;
+      }, { multiplier: 2 });
+      const reduced = array.reduce((total, value) => total + value);
+      let visited = 0;
+      const iterated = array.forEach(() => {
+        visited++;
+      });
+
+      expect(included.value).toBe(true);
+      expect(firstIndex.value).toBe(1);
+      expect(finalIndex.value).toBe(1);
+      expect(joined.value).toBe("1-2-3");
+      expect(localized.value).toBe("1,2,3");
+      expect(sliced.value).toEqual([2, 3]);
+      expect(replaced.value).toEqual([1, 9, 3]);
+      expect([...entries.value]).toEqual([
+        [0, 1],
+        [1, 2],
+        [2, 3],
+      ]);
+      expect([...keys.value]).toEqual([0, 1, 2]);
+      expect([...values.value]).toEqual([1, 2, 3]);
+      expect(flattened.value).toEqual([1, 2, 3]);
+      expect(flatMapped.value).toEqual([1, 10, 2, 20, 3, 30]);
+      expect(mapped.value).toEqual([2, 4, 6]);
+      expect(reduced.value).toBe(6);
+      expect(iterated.value).toBeUndefined();
+      expect(visited).toBe(3);
+
+      item.value = 3;
+      fromIndex.value = 2;
+      multiplier.value = 5;
+      array.value = [3, 2, 3];
+
+      expect(included.value).toBe(true);
+      expect(firstIndex.value).toBe(0);
+      expect(finalIndex.value).toBe(2);
+      expect(joined.value).toBe("3-2-3");
+      expect(localized.value).toBe("3,2,3");
+      expect(sliced.value).toEqual([3]);
+      expect(replaced.value).toEqual([3, 9, 3]);
+      expect([...entries.value]).toEqual([
+        [0, 3],
+        [1, 2],
+        [2, 3],
+      ]);
+      expect([...keys.value]).toEqual([0, 1, 2]);
+      expect([...values.value]).toEqual([3, 2, 3]);
+      expect(flatMapped.value).toEqual([3, 15, 2, 10, 3, 15]);
+      expect(mapped.value).toEqual([6, 4, 6]);
+      expect(reduced.value).toBe(8);
+      expect(visited).toBe(6);
+    });
+
     it("handles an empty array at the boundaries", () => {
       const array = signal<number[]>([]);
       expect(array.at(0).value).toBeUndefined();

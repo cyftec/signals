@@ -52,7 +52,7 @@ provide `nonReactiveValue` for a single non-collecting read.
 - Array, object, string, number, and boolean helper families selected from the
   initial value.
 - Convenience APIs: `compute`, `tmpl`, `receive`, `transmit`, `promstates`,
-  `nullable`, `op`, and `dispose`.
+  `nonSignal`, `op`, and `dispose`.
 - Lazy operation chains with eager reactive terminal values for generic logic,
   numeric arithmetic and comparisons, and string or array length checks.
 - Universal generic comparisons, including `Date`-to-number comparisons, with

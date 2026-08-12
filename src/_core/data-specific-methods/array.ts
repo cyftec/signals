@@ -168,6 +168,7 @@ export const getArrayIntrinsicNonMutatingMethods = <T extends any[]>(
       derive(() =>
         baseArraySignal.value.every(...getPlainMethodParams(...args)),
       ),
+    entries: () => derive(() => baseArraySignal.value.entries()),
     filter: (
       ...args: MaybeSignalValues<Parameters<Array<T[number]>["filter"]>>
     ) =>
@@ -205,44 +206,103 @@ export const getArrayIntrinsicNonMutatingMethods = <T extends any[]>(
       derive(() =>
         baseArraySignal.value.findLastIndex(...getPlainMethodParams(...args)),
       ),
+    flat: <D extends number = 1>(depth?: MaybeSignal<D>) =>
+      derive(
+        () =>
+          baseArraySignal.value.flat(
+            value(depth as MaybeSignal<D | undefined>) as D | undefined,
+          ) as FlatArray<T[number], D>[],
+      ),
+    flatMap: <U, This = undefined>(
+      callback: (item: T[number], index: number, array: T) => U | readonly U[],
+      thisArg?: MaybeSignal<This>,
+    ) =>
+      derive(
+        () =>
+          baseArraySignal.value.flatMap(
+            callback as any,
+            value(thisArg as MaybeSignal<This | undefined>),
+          ) as U[],
+      ),
+    forEach: (
+      ...args: MaybeSignalValues<Parameters<Array<T[number]>["forEach"]>>
+    ) =>
+      derive(() => {
+        baseArraySignal.value.forEach(...getPlainMethodParams(...args));
+      }),
+    includes: (
+      ...args: MaybeSignalValues<Parameters<Array<T[number]>["includes"]>>
+    ) =>
+      derive(() =>
+        baseArraySignal.value.includes(...getPlainMethodParams(...args)),
+      ),
+    indexOf: (
+      ...args: MaybeSignalValues<Parameters<Array<T[number]>["indexOf"]>>
+    ) =>
+      derive(() =>
+        baseArraySignal.value.indexOf(...getPlainMethodParams(...args)),
+      ),
+    join: (...args: MaybeSignalValues<Parameters<Array<T[number]>["join"]>>) =>
+      derive(() => baseArraySignal.value.join(...getPlainMethodParams(...args))),
+    keys: () => derive(() => baseArraySignal.value.keys()),
+    lastIndexOf: (
+      ...args: MaybeSignalValues<Parameters<Array<T[number]>["lastIndexOf"]>>
+    ) =>
+      derive(() =>
+        baseArraySignal.value.lastIndexOf(...getPlainMethodParams(...args)),
+      ),
     length: () => derive(() => baseArraySignal.value.length),
-    map: <U>(mapFn: (item: T[number], index: number, array: T) => U) =>
-      derive(() => baseArraySignal.value.map(mapFn as any) as U[]),
-    reduce: <U>(
-      reducerFn: (
-        previousValue: U,
-        currentValue: T[number],
-        currentIndex: number,
-        array: T,
-      ) => U,
-      initialValue: MaybeSignal<U>,
+    map: <U>(
+      mapFn: (item: T[number], index: number, array: T) => U,
+      thisArg?: MaybeSignal<unknown>,
     ) =>
-      derive(
-        () =>
-          baseArraySignal.value.reduce(
-            reducerFn as any,
-            value(initialValue),
-          ) as U,
+      derive(() =>
+        baseArraySignal.value.map(
+          mapFn as any,
+          value(thisArg as MaybeSignal<unknown>),
+        ) as U[],
       ),
-    reduceRight: <U>(
-      reducerFn: (
-        previousValue: U,
-        currentValue: T[number],
-        currentIndex: number,
-        array: T,
-      ) => U,
-      initialValue: MaybeSignal<U>,
+    reduce: ((
+      reducerFn: (previousValue: unknown, currentValue: T[number]) => unknown,
+      ...initialValue: [MaybeSignal<unknown>?]
     ) =>
-      derive(
-        () =>
-          baseArraySignal.value.reduceRight(
-            reducerFn as any,
-            value(initialValue),
-          ) as U,
-      ),
+      derive(() =>
+        initialValue.length === 0
+          ? baseArraySignal.value.reduce(reducerFn as any)
+          : baseArraySignal.value.reduce(
+              reducerFn as any,
+              value(initialValue[0] as MaybeSignal<unknown>),
+            ),
+      )) as ArrayIntrinsicNonMutatingMethods<T>["reduce"],
+    reduceRight: ((
+      reducerFn: (previousValue: unknown, currentValue: T[number]) => unknown,
+      ...initialValue: [MaybeSignal<unknown>?]
+    ) =>
+      derive(() =>
+        initialValue.length === 0
+          ? baseArraySignal.value.reduceRight(reducerFn as any)
+          : baseArraySignal.value.reduceRight(
+              reducerFn as any,
+              value(initialValue[0] as MaybeSignal<unknown>),
+            ),
+      )) as ArrayIntrinsicNonMutatingMethods<T>["reduceRight"],
     some: (...args: MaybeSignalValues<Parameters<Array<T[number]>["some"]>>) =>
       derive(() =>
         baseArraySignal.value.some(...getPlainMethodParams(...args)),
+      ),
+    slice: (
+      ...args: MaybeSignalValues<Parameters<Array<T[number]>["slice"]>>
+    ) =>
+      derive(() =>
+        baseArraySignal.value.slice(...getPlainMethodParams(...args)) as T[number][],
+      ),
+    toLocaleString: (
+      ...args: MaybeSignalValues<
+        Parameters<Array<T[number]>["toLocaleString"]>
+      >
+    ) =>
+      derive(() =>
+        baseArraySignal.value.toLocaleString(...getPlainMethodParams(...args)),
       ),
     toReversed: (
       ...args: MaybeSignalValues<Parameters<Array<T[number]>["toReversed"]>>
@@ -269,7 +329,14 @@ export const getArrayIntrinsicNonMutatingMethods = <T extends any[]>(
         () =>
           baseArraySignal.value.toSpliced(
             ...getPlainMethodParams(...args),
-          ) as T[number][],
+        ) as T[number][],
+      ),
+    values: () => derive(() => baseArraySignal.value.values()),
+    with: (
+      ...args: MaybeSignalValues<Parameters<Array<T[number]>["with"]>>
+    ) =>
+      derive(() =>
+        baseArraySignal.value.with(...getPlainMethodParams(...args)) as T[number][],
       ),
   };
 };

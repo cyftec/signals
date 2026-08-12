@@ -1,33 +1,33 @@
 import { describe, expect, it } from "bun:test";
-import { derive, nullable, signal } from "../src";
+import { derive, effect, nonSignal, signal } from "../src";
 
 describe("generic methods", () => {
   describe("toString()", () => {
     it("serializes nullish, primitive, array, and plain-object values reactively", () => {
-      const nullable = signal<string | null>(null, "");
+      const optionalText = signal<string | null>(null, "");
       const undefinedValue = signal<undefined>(undefined);
       const number = signal(12);
       const items = signal([1, 2]);
       const object = signal({ name: "Ada", active: true });
 
-      const nullableText = nullable.toString();
+      const optionalTextValue = optionalText.toString();
       const undefinedText = undefinedValue.toString();
       const numberText = number.toString();
       const itemsText = items.toString();
       const objectText = object.toString();
 
-      expect(nullableText.value).toBe("null");
+      expect(optionalTextValue.value).toBe("null");
       expect(undefinedText.value).toBe("undefined");
       expect(numberText.value).toBe("12");
       expect(itemsText.value).toBe("1,2");
       expect(objectText.value).toBe('{"name":"Ada","active":true}');
 
-      nullable.value = "ready";
+      optionalText.value = "ready";
       number.value = 7;
       items.value = [3];
       object.value = { name: "Grace", active: false };
 
-      expect(nullableText.value).toBe("ready");
+      expect(optionalTextValue.value).toBe("ready");
       expect(numberText.value).toBe("7");
       expect(itemsText.value).toBe("3");
       expect(objectText.value).toBe('{"name":"Grace","active":false}');
@@ -377,9 +377,9 @@ describe("generic methods", () => {
   });
 });
 
-describe("nullable generic-method wrapper", () => {
-  it("adds generic methods to a plain nullable value", () => {
-    const wrapped = nullable<number | undefined>(undefined);
+describe("nonSignal helper wrapper", () => {
+  it("adds generic methods to a plain nullish value", () => {
+    const wrapped = nonSignal<number | undefined>(undefined);
 
     expect(wrapped.or(10).value).toBe(10);
     expect(wrapped.is.falsy().value).toBe(true);
@@ -390,7 +390,7 @@ describe("nullable generic-method wrapper", () => {
 
   it("keeps wrapped signal values reactive", () => {
     const input = signal<number | null>(null);
-    const wrapped = nullable(input);
+    const wrapped = nonSignal(input);
     const result = wrapped.if.truthy().then("present", "missing");
 
     expect(result.value).toBe("missing");
@@ -404,7 +404,7 @@ describe("nullable generic-method wrapper", () => {
     const date = signal(new Date(2_000));
     const rank = signal({ valueOf: () => 3 });
     const dateResult = date.is.greaterThan(timestamp);
-    const rankResult = nullable(rank).if.smallerThan(4).then("low", "high");
+    const rankResult = nonSignal(rank).if.smallerThan(4).then("low", "high");
 
     expect(dateResult.value).toBe(true);
     expect(rankResult.value).toBe("low");
@@ -417,5 +417,48 @@ describe("nullable generic-method wrapper", () => {
     const symbol = signal(Symbol("value"));
 
     expect(() => symbol.is.greaterThan(1)).toThrow(TypeError);
+  });
+
+  it("adds read-only data methods to plain values and wrapped signals", () => {
+    const day = signal("Wed");
+    const dayIndex = nonSignal([
+      "Sun",
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+    ]).indexOf(day);
+    const text = signal("  hello  ");
+    const trimmed = nonSignal(text).trim();
+    const limit = signal(10);
+    const confined = nonSignal(12).toConfined(0, limit);
+
+    expect(dayIndex.value).toBe(3);
+    expect(trimmed.value).toBe("hello");
+    expect(confined.value).toBe(10);
+
+    day.value = "Sat";
+    text.value = "  world  ";
+    limit.value = 15;
+
+    expect(dayIndex.value).toBe(6);
+    expect(trimmed.value).toBe("world");
+    expect(confined.value).toBe(12);
+  });
+
+  it("does not subscribe until a returned helper projection reads the input", () => {
+    const input = signal([1, 2, 3]);
+    let runs = 0;
+    const receiver = effect(() => {
+      nonSignal(input);
+      runs++;
+    });
+
+    input.value = [4, 5, 6];
+
+    expect(runs).toBe(1);
+    receiver.dispose();
   });
 });

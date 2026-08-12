@@ -488,6 +488,7 @@ export type ArrayIntrinsicNonMutatingMethods<T extends any[]> = {
   every(
     ...args: MaybeSignalValues<Parameters<Array<T[number]>["every"]>>
   ): DerivedSignal<ReturnType<Array<T[number]>["every"]>>;
+  entries(): DerivedSignal<ReturnType<Array<T[number]>["entries"]>>;
   filter(
     ...args: MaybeSignalValues<Parameters<Array<T[number]>["filter"]>>
   ): DerivedSignal<ReturnType<Array<T[number]>["filter"]>>;
@@ -503,10 +504,42 @@ export type ArrayIntrinsicNonMutatingMethods<T extends any[]> = {
   findLastIndex(
     ...args: MaybeSignalValues<Parameters<Array<T[number]>["findLastIndex"]>>
   ): DerivedSignal<ReturnType<Array<T[number]>["findLastIndex"]>>;
+  flat<D extends number = 1>(
+    depth?: MaybeSignal<D>,
+  ): DerivedSignal<FlatArray<T[number], D>[]>;
+  flatMap<U, This = undefined>(
+    callback: (item: T[number], index: number, array: T) => U | readonly U[],
+    thisArg?: MaybeSignal<This>,
+  ): DerivedSignal<U[]>;
+  forEach(
+    ...args: MaybeSignalValues<Parameters<Array<T[number]>["forEach"]>>
+  ): DerivedSignal<void>;
+  includes(
+    ...args: MaybeSignalValues<Parameters<Array<T[number]>["includes"]>>
+  ): DerivedSignal<ReturnType<Array<T[number]>["includes"]>>;
+  indexOf(
+    ...args: MaybeSignalValues<Parameters<Array<T[number]>["indexOf"]>>
+  ): DerivedSignal<ReturnType<Array<T[number]>["indexOf"]>>;
+  join(
+    ...args: MaybeSignalValues<Parameters<Array<T[number]>["join"]>>
+  ): DerivedSignal<ReturnType<Array<T[number]>["join"]>>;
+  keys(): DerivedSignal<ReturnType<Array<T[number]>["keys"]>>;
+  lastIndexOf(
+    ...args: MaybeSignalValues<Parameters<Array<T[number]>["lastIndexOf"]>>
+  ): DerivedSignal<ReturnType<Array<T[number]>["lastIndexOf"]>>;
   length(): DerivedSignal<number>;
   map<U>(
     mapFn: (item: T[number], index: number, array: T) => U,
+    thisArg?: MaybeSignal<unknown>,
   ): DerivedSignal<U[]>;
+  reduce(
+    reducerFn: (
+      previousValue: T[number],
+      currentValue: T[number],
+      currentIndex: number,
+      array: T,
+    ) => T[number],
+  ): DerivedSignal<T[number]>;
   reduce<U>(
     reducerFn: (
       previousValue: U,
@@ -516,6 +549,14 @@ export type ArrayIntrinsicNonMutatingMethods<T extends any[]> = {
     ) => U,
     initialValue: MaybeSignal<U>,
   ): DerivedSignal<U>;
+  reduceRight(
+    reducerFn: (
+      previousValue: T[number],
+      currentValue: T[number],
+      currentIndex: number,
+      array: T,
+    ) => T[number],
+  ): DerivedSignal<T[number]>;
   reduceRight<U>(
     reducerFn: (
       previousValue: U,
@@ -528,6 +569,12 @@ export type ArrayIntrinsicNonMutatingMethods<T extends any[]> = {
   some(
     ...args: MaybeSignalValues<Parameters<Array<T[number]>["some"]>>
   ): DerivedSignal<ReturnType<Array<T[number]>["some"]>>;
+  slice(
+    ...args: MaybeSignalValues<Parameters<Array<T[number]>["slice"]>>
+  ): DerivedSignal<ReturnType<Array<T[number]>["slice"]>>;
+  toLocaleString(
+    ...args: MaybeSignalValues<Parameters<Array<T[number]>["toLocaleString"]>>
+  ): DerivedSignal<ReturnType<Array<T[number]>["toLocaleString"]>>;
   toReversed(
     ...args: MaybeSignalValues<Parameters<Array<T[number]>["toReversed"]>>
   ): DerivedSignal<ReturnType<Array<T[number]>["toReversed"]>>;
@@ -537,6 +584,10 @@ export type ArrayIntrinsicNonMutatingMethods<T extends any[]> = {
   toSpliced(
     ...args: MaybeSignalValues<Parameters<Array<T[number]>["splice"]>>
   ): DerivedSignal<ReturnType<Array<T[number]>["toSpliced"]>>;
+  values(): DerivedSignal<ReturnType<Array<T[number]>["values"]>>;
+  with(
+    ...args: MaybeSignalValues<Parameters<Array<T[number]>["with"]>>
+  ): DerivedSignal<ReturnType<Array<T[number]>["with"]>>;
 };
 
 /**

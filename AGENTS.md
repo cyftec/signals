@@ -67,7 +67,7 @@ console.log(text.trim().value); // "hello"
 
 Arrays, plain objects, strings, numbers, and source booleans receive their respective helpers. Mutators exist only on source signals under `.mutate`; projections return eagerly maintained `DerivedSignal` values.
 
-Main exports are `signal`, `derive`, `effect`, `deadZone`, `dispose`, `compute`, `tmpl`, `receive`, `transmit`, `promstates`, `nullable`, `op`, `value`, `getPlainMethodParams`, and the runtime signal guards.
+Main exports are `signal`, `derive`, `effect`, `deadZone`, `dispose`, `compute`, `tmpl`, `receive`, `transmit`, `promstates`, `nonSignal`, `op`, `value`, `getPlainMethodParams`, and the runtime signal guards.
 
 ## Semantic contract
 
@@ -154,7 +154,7 @@ Source mutators publish through normal source assignment. Every read-only helper
 - `if.*` returns `.then(truthyOption, falsyOption)`; both options are read during each computation before the selected option is returned.
 - `toString()` returns an eagerly maintained `DerivedSignal<string>`. It renders `null` as `"null"`, `undefined` as `"undefined"`, plain objects with `JSON.stringify`, and every other value with its JavaScript `toString()` method.
 - Relational comparisons preserve JavaScript coercion: for example, a `Date` compares to a number through its timestamp. Values that JavaScript cannot compare, such as a symbol and a number, throw the corresponding `TypeError`.
-- `nullable(input)` exposes this generic surface for every plain or signal input type.
+- `nonSignal(input)` exposes this generic surface and the applicable read-only array, plain-object, string, or number helpers for every plain or signal input type.
 
 ### Convenience APIs
 
@@ -250,9 +250,10 @@ array.mutate.unshift(...items);
 Source and derived arrays provide eagerly maintained `DerivedSignal` projections:
 
 ```text
-at, concat, every, filter, find, findIndex, findLast, findLastIndex,
-length, map, reduce, reduceRight, some, toReversed, toSorted, toSpliced,
-lastItem, partition
+at, concat, entries, every, filter, find, findIndex, findLast, findLastIndex,
+flat, flatMap, forEach, includes, indexOf, join, keys, lastIndexOf, length,
+map, reduce, reduceRight, slice, some, toLocaleString, toReversed, toSorted,
+toSpliced, values, with, lastItem, partition
 ```
 
 `partition(predicate, thisArg?)` returns `[passing, failing]`.
@@ -287,7 +288,7 @@ input.if.truthy().then(whenTruthy, whenFalsy);
 
 All values provide the four relational comparisons. Strings and arrays provide the equivalent comparison surface under `.is.length` and `.if.length`. Relational operations follow JavaScript coercion and may throw for unsupported operands such as symbols. All results are eagerly maintained `DerivedSignal` values.
 
-`nullable(input)` supplies this generic surface for any plain or signal input type.
+`nonSignal(input)` supplies this generic surface and the applicable read-only data-method family for any plain or signal input type. It never exposes source mutators.
 
 ### Convenience APIs
 
@@ -307,13 +308,15 @@ const text = tmpl`Hello ${name}; count: ${count}`;
 
 Returns an eagerly maintained derived string. Expressions may be plain values, signals, or zero-argument functions; nullish expressions render as empty strings.
 
-#### `nullable`
+#### `nonSignal`
 
 ```ts
-const threshold = nullable(new Date()).is.greaterThan(Date.now());
+const threshold = nonSignal(new Date()).is.greaterThan(Date.now());
+const day = signal("Tue");
+const index = nonSignal(["Sun", "Mon", "Tue"]).indexOf(day);
 ```
 
-Returns the generic helper surface for any plain value or signal. Its truthiness and strict-equality checks accept every value type. Relational checks also accept every value and operand type, preserving JavaScript's native coercion and `TypeError` behavior.
+Returns generic helpers and the applicable read-only data-method family for any plain value or signal. Its truthiness and strict-equality checks accept every value type. Relational checks also accept every value and operand type, preserving JavaScript's native coercion and `TypeError` behavior. Data-method projections remain reactive to any initially captured signal input or signal-valued parameter.
 
 #### `op`
 
@@ -434,7 +437,7 @@ The derived `nonReactiveValue` getter reads the backing source's stored result d
 
 - `compute` maps signal-capable arguments through `value` inside an eager derived computation before calling its function.
 - `receive` and `transmit` compose immediate effects to copy values.
-- `nullable` exposes generic helpers for any plain or signal input.
+- `nonSignal` exposes generic and applicable read-only data helpers for any plain or signal input.
 - `op` selects a lazy generic, numeric, or string-and-array evaluator from an initial value. Its terminal values use `derive`, so they are eager once created and retain only sources read on their first evaluation.
 - `promstates` stores promise state in one object source signal and returns property projections.
 - `tmpl` is a derived tagged-template evaluator.
@@ -490,7 +493,7 @@ Source-array mutators intentionally use a shared mutable array surface so they d
 
 ### Signal-capable inputs
 
-APIs accepting `MaybeSignal<T>` accept a narrower signal where the declared value type is wider. This includes `value`, `getPlainMethodParams`, `compute` arguments, `nullable` inputs, signal-valued data-method arguments, `receive` transmitters, and `transmit` transmitters with wider source receivers.
+APIs accepting `MaybeSignal<T>` accept a narrower signal where the declared value type is wider. This includes `value`, `getPlainMethodParams`, `compute` arguments, `nonSignal` inputs, signal-valued data-method arguments, `receive` transmitters, and `transmit` transmitters with wider source receivers.
 
 ```ts
 const narrow = signal<1>(1);
@@ -516,7 +519,7 @@ bun run build:meta
 bun run build:validate
 ```
 
-`bun run test:types` verifies the public TypeScript contract, including directional widening such as assigning `Signal<number>` where `Signal<number | boolean | string>` is expected. Its fixtures cover positive and negative container assignments, wide source writes, array/object projections, nullable unions, maybe-signal inputs, `compute`, `value`, `nullable`, `dispose`, `receive`, and `transmit`.
+`bun run test:types` verifies the public TypeScript contract, including directional widening such as assigning `Signal<number>` where `Signal<number | boolean | string>` is expected. Its fixtures cover positive and negative container assignments, wide source writes, array/object projections, nullable unions, maybe-signal inputs, `compute`, `value`, `nonSignal`, `dispose`, `receive`, and `transmit`.
 
 ### Documentation pipeline
 

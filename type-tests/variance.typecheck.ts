@@ -1,7 +1,7 @@
 import { expectTypeOf } from "bun:test";
 import {
   compute,
-  nullable,
+  nonSignal,
   receive,
   signal,
   transmit,
@@ -126,9 +126,9 @@ expectTypeOf(
   ),
 ).toEqualTypeOf<DerivedSignal<string>>();
 
-const nullableWide = (input: MaybeSignal<string | number>) => nullable(input);
-nullableWide(narrowString);
-nullableWide(narrowNumber);
+const nonSignalWide = (input: MaybeSignal<string | number>) => nonSignal(input);
+nonSignalWide(narrowString);
+nonSignalWide(narrowNumber);
 
 const receiver = signal<WideArray>([]);
 receive(receiver, narrowSourceArray, narrowDerivedArray, []);
